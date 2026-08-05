@@ -9,3 +9,7 @@ venv/
 # 논문 원문 PDF는 용량이 크고 저작권이 있어 git으로 추적하지 않는다.
 # Journal/ 폴더는 Google Drive 동기화로만 관리한다.
 *.pdf
+
+# 데이터는 스크립트로 재현 가능하므로 git으로 추적하지 않는다.
+# data/raw는 scripts/download_admet.py로, 이후 변형 캐시도 재생성 가능하게 유지한다.
+data/
