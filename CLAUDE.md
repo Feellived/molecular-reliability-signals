@@ -16,6 +16,16 @@
 4. **1주차 착수 게이트를 반드시 통과한 뒤 본 작업에 들어간다.** 사용할 데이터셋에서 호변이성질체·염 형태·입체 표기가 실제로 몇 개나 변형 가능한지 세어보고, 10퍼센트 미만인 축은 그 자리에서 버린다. 특히 B2(염 형태)·B3(입체 표기)는 소멸 가능성이 실재한다.
 5. **표현 불안정성(A)을 측정하려면 SMILES를 직접 읽는 모델이 필수다.** 분자 지문(Morgan fingerprint) 기반 모델에서는 A가 원리상 항상 0이다.
 
+## 작업 환경
+
+이 폴더는 Google Drive에 있고 Colab에서 마운트해서 쓴다. 그래서 코드(`scripts/`)·데이터(`data/`)·문서는 이 폴더 안에 두어 Colab이 그대로 읽을 수 있게 한다.
+
+로컬(맥)에서 CLI로 작업할 때 쓰는 Python 가상환경(`.venv`)은 Drive 폴더 밖(`~/.venvs/molecular-reliability-signals`)에 둔다. 가상환경은 파일 수가 많아 Drive 동기화를 심하게 느리게 만들기 때문이다. Colab에서는 이 로컬 venv를 쓰지 않고 노트북 안에서 그때그때 `pip install`한다. 로컬에서 스크립트를 실행할 때는 다음으로 활성화한다.
+
+```bash
+source ~/.venvs/molecular-reliability-signals/bin/activate
+```
+
 ## 문서·자료 구조
 
 - `Journal/` — 검증된 선행연구 원문 PDF 모음. 인용 전에는 항상 이 폴더의 원문을 우선 확인한다. DOI를 만들어내지 않는다.
