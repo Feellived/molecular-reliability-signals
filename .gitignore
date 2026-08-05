@@ -1,0 +1,11 @@
+.DS_Store
+*.pyc
+__pycache__/
+.ipynb_checkpoints/
+.venv/
+venv/
+*.egg-info/
+
+# 논문 원문 PDF는 용량이 크고 저작권이 있어 git으로 추적하지 않는다.
+# Journal/ 폴더는 Google Drive 동기화로만 관리한다.
+*.pdf
