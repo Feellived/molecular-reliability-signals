@@ -4,6 +4,7 @@ __pycache__/
 .ipynb_checkpoints/
 .venv/
 venv/
+# 로컬 개발 환경은 Drive 바깥(예: ~/.venvs/)에 둔다. Drive 안에 .venv를 만들지 않는다.
 *.egg-info/
 
 # 논문 원문 PDF는 용량이 크고 저작권이 있어 git으로 추적하지 않는다.
