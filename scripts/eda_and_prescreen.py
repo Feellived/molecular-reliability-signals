@@ -33,6 +33,11 @@ MAX_PROTOMERS = 20
 
 _tautomer_enumerator = rdMolStandardize.TautomerEnumerator()
 _tautomer_enumerator.SetMaxTautomers(MAX_TAUTOMERS)
+# canSARchem_RDKit(Journal/canSAR chemistry registration and standardization
+# pipeline.pdf)이 정준 대표 구조를 생성할 때 쓰는 설정과 동일하게 맞춘다.
+# 이 단계에서 입체 정보를 지우지 않아야 B3(입체 표기) 축과 간섭하지 않는다.
+_tautomer_enumerator.SetRemoveSp3Stereo(False)
+_tautomer_enumerator.SetRemoveBondStereo(False)
 _uncharger = rdMolStandardize.Uncharger()
 
 try:
@@ -78,6 +83,22 @@ def count_tautomers(mol):
         return None
 
 
+def get_canonical_tautomer_smiles(mol):
+    """대표(정준) 호변이성질체 하나를 정한다.
+
+    canSARchem_RDKit과 동일하게 rdMolStandardize.TautomerEnumerator.Canonicalize를
+    쓴다 (Sitzmann et al. 2010의 스코어링 규칙, RDKit 문서에 명시).
+    주의: 이 함수는 "가장 안정적인" 형태를 보장하지 않는다. 입력 순서와 무관하게
+    항상 같은 결과를 내는 정준화가 목적이며, 6.2절 분산 계산에는 쓰지 않는다.
+    5.7절 중복 제거의 부모 분자 키, 7.3절 분자 카드의 기준점으로만 사용한다.
+    """
+    try:
+        canonical = _tautomer_enumerator.Canonicalize(mol)
+        return Chem.MolToSmiles(canonical)
+    except Exception:
+        return None
+
+
 def count_protomers(smiles):
     if not HAS_DIMORPHITE:
         return None
@@ -106,6 +127,7 @@ def profile_dataset(name, sample_n=None):
                 "smiles": smi, "valid": False, "has_salt": None,
                 "parent_smiles": None, "scaffold": None, "has_stereo": None,
                 "n_tautomers": None, "n_protomers": None,
+                "canonical_tautomer_smiles": None,
             })
             continue
 
@@ -116,19 +138,27 @@ def profile_dataset(name, sample_n=None):
         stereo = has_stereo_spec(smi)
         n_taut = count_tautomers(parent_mol)
         n_proto = count_protomers(parent_smi)
+        # 5.7절 중복 제거 키: 염만 뗀 parent_smiles는 호변이성질체가 다르면
+        # 같은 화합물도 다른 문자열로 남는다. canSAR 순서(표준화 -> 정준
+        # 호변이성질체 생성 -> 염 제거)를 참고해 정준 호변이성질체까지 반영한
+        # 키를 별도로 둔다.
+        canonical_taut_smi = get_canonical_tautomer_smiles(parent_mol)
 
         rows.append({
             "smiles": smi, "valid": True, "has_salt": salt,
             "parent_smiles": parent_smi, "scaffold": scaffold, "has_stereo": stereo,
             "n_tautomers": n_taut, "n_protomers": n_proto,
+            "canonical_tautomer_smiles": canonical_taut_smi,
         })
 
     detail = pd.DataFrame(rows)
     valid = detail[detail["valid"]]
 
     n_parent_dup = 0
+    n_parent_dup_taut_aware = 0
     if len(valid) > 0:
         n_parent_dup = len(valid) - valid["parent_smiles"].nunique()
+        n_parent_dup_taut_aware = len(valid) - valid["canonical_tautomer_smiles"].nunique()
 
     summary = {
         "dataset": name,
@@ -136,6 +166,7 @@ def profile_dataset(name, sample_n=None):
         "n_invalid_smiles": n_invalid,
         "n_dup_raw_smiles": int(n_dup_smiles_raw),
         "n_dup_parent_molecules": int(n_parent_dup),
+        "n_dup_parent_molecules_tautomer_aware": int(n_parent_dup_taut_aware),
         "n_with_salt": int(valid["has_salt"].sum()) if len(valid) else 0,
         "pct_with_salt": round(100 * valid["has_salt"].mean(), 2) if len(valid) else None,
         "n_with_stereo": int(valid["has_stereo"].sum()) if len(valid) else 0,
