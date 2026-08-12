@@ -39,6 +39,10 @@ _tautomer_enumerator.SetMaxTautomers(MAX_TAUTOMERS)
 _tautomer_enumerator.SetRemoveSp3Stereo(False)
 _tautomer_enumerator.SetRemoveBondStereo(False)
 _uncharger = rdMolStandardize.Uncharger()
+# canSAR 논문이 언급하는 "RDKit Salt Strip Standardizer"와 같은 계열의 전용
+# 도구. preferOrganic=True로 두면 무거운 원자 수만 보지 않고 탄소 포함 여부까지
+# 반영해서, 짝이온이 우연히 큰 유기물(베실산염 등)인 경우의 오판을 줄인다.
+_largest_fragment_chooser = rdMolStandardize.LargestFragmentChooser(preferOrganic=True)
 
 try:
     from dimorphite_dl import protonate_smiles
@@ -63,11 +67,19 @@ def has_salt(smiles):
 
 
 def get_parent(mol):
-    """가장 큰 조각을 부모 분자로 취급한다 (원본은 보존, 별도 계산)."""
-    frags = Chem.GetMolFrags(mol, asMols=True, sanitizeFrags=True)
-    if len(frags) == 1:
-        return mol
-    return max(frags, key=lambda m: m.GetNumHeavyAtoms())
+    """부모 분자를 취급한다 (원본은 보존, 별도 계산).
+
+    RDKit LargestFragmentChooser(preferOrganic=True)를 쓴다. 무거운 원자 수
+    최대인 조각을 고르는 단순 규칙 대신, 유기 조각을 우선시하는 규칙까지
+    반영한다.
+    """
+    try:
+        return _largest_fragment_chooser.choose(mol)
+    except Exception:
+        frags = Chem.GetMolFrags(mol, asMols=True, sanitizeFrags=True)
+        if len(frags) == 1:
+            return mol
+        return max(frags, key=lambda m: m.GetNumHeavyAtoms())
 
 
 def has_stereo_spec(smiles):
@@ -132,7 +144,7 @@ def profile_dataset(name, sample_n=None):
             continue
 
         salt = has_salt(smi)
-        parent_mol = get_parent(mol) if salt else mol
+        parent_mol = get_parent(mol)
         parent_smi = Chem.MolToSmiles(parent_mol)
         scaffold = MurckoScaffold.MurckoScaffoldSmiles(mol=parent_mol) if parent_mol else None
         stereo = has_stereo_spec(smi)
