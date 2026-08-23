@@ -14,3 +14,9 @@ venv/
 # 데이터는 스크립트로 재현 가능하므로 git으로 추적하지 않는다.
 # data/raw는 scripts/download_admet.py로, 이후 변형 캐시도 재생성 가능하게 유지한다.
 data/
+
+# Colab/Drive에서 생성되는 대용량 담당 2 산출물
+outputs/
+artifacts/
+checkpoints/
+results/role2/full_outputs/

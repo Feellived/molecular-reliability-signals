@@ -1,0 +1,35 @@
+{
+  "datasets": 22,
+  "classification_datasets": 13,
+  "regression_datasets": 9,
+  "fingerprint_models": ["RandomForest", "XGBoost"],
+  "chemberta": {
+    "model": "DeepChem/ChemBERTa-10M-MTR",
+    "versions": ["regular", "augmented"],
+    "epochs": 3,
+    "augmentation_per_molecule": 3,
+    "regression_target_standardization": true,
+    "prediction_files": 44,
+    "checkpoints": 44
+  },
+  "conformal": {
+    "regression": "normalized split conformal",
+    "classification": "randomized APS",
+    "alpha": 0.1
+  },
+  "applicability_domain": [
+    "top-5 Tanimoto mean",
+    "local density count at Tanimoto >= 0.40"
+  ],
+  "model_disagreement": "fingerprint primary vs ChemBERTa augmented",
+  "row_key": "row_uid",
+  "drive_root": "MyDrive/tobigs_2026",
+  "analysis": {
+    "test_metric_rows": 110,
+    "target_conformal_coverage": 0.9,
+    "mean_conformal_coverage_classification": 0.9062531357546835,
+    "mean_conformal_coverage_regression": 0.9090227485574928,
+    "issues": []
+  },
+  "status": "complete"
+}

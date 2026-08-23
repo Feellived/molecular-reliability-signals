@@ -1,0 +1,10 @@
+model_name: DeepChem/ChemBERTa-10M-MTR
+seed: 42
+epochs: 3
+batch_size: 32
+max_length: 128
+learning_rate: 2.0e-5
+augmentation_per_molecule: 3
+conformal_alpha: 0.10
+ad_k_neighbors: 5
+ad_density_similarity_threshold: 0.40
