@@ -27,27 +27,32 @@ for f in sorted(glob.glob(f"{B}/Juhyeong/data/processed/scores_role4/signals/*/a
 allsig = pd.concat(sig, ignore_index=True)
 summary = pd.read_csv(f"{B}/Juhyeong/data/processed/scores_role4/signals/_summary/ab_signal_summary.csv")
 
-# --- 그림 1: 축·모델별 오차 상관 ---
-LBL = {"A": "A 표기", "B1_tautomer": "B1 호변이성질체", "B1_protonation": "B1 양성자화",
-       "B3_stereo": "B3 입체", "B_combined": "B 통합"}
-MDL = {"fp_primary": "지문 모델", "cb_regular": "ChemBERTa 정규", "cb_augmented": "ChemBERTa 증강"}
-piv = summary.pivot_table(index="axis", columns="model", values="spearman_vs_abs_error", aggfunc="median")
-piv = piv.reindex(["A", "B1_tautomer", "B1_protonation", "B3_stereo", "B_combined"])
-fig, ax = plt.subplots(figsize=(8.4, 4.2))
-x = np.arange(len(piv)); w = 0.26
-for i, (m, c) in enumerate(zip(["fp_primary", "cb_regular", "cb_augmented"], [ACC, GREY, WARM])):
-    v = piv[m].values
-    ax.bar(x + (i - 1) * w, np.nan_to_num(v), w, label=MDL[m], color=c)
-    for xi, vi in zip(x + (i - 1) * w, v):
-        if np.isnan(vi):
-            ax.text(xi, .004, "구조적 0", ha="center", va="bottom", fontsize=7, color=GREY, rotation=90)
-ax.axhline(0.11, ls="--", lw=1, color="#444")
-ax.set_ylim(0, 0.148)
-ax.text(-0.45, .1135, "기존 최강 신호(모델 불일치) 0.11", fontsize=8, ha="left", color="#444")
-ax.set_xticks(x); ax.set_xticklabels([LBL[i] for i in piv.index])
-ax.set_ylabel("실제 오차와의 Spearman 상관")
-ax.set_title("축·모델별 신호와 예측 오차의 상관 (22종 중앙값, test)", fontsize=11, pad=12)
-ax.legend(frameon=False, fontsize=9, ncol=3, loc="upper center", bbox_to_anchor=(0.5, 1.0))
+# --- 그림 1: 신호별 오차 판별력 (기준선과 축 신호를 같은 오차 기준으로) ---
+ev = pd.read_csv(f"{B}/Juhyeong/data/processed/scores_role4/evaluation/_summary/evaluation_signal_summary.csv")
+SIG = {"base__conformal_fp": "컨포멀 (지문)", "base__ad_knn": "적용가능도메인\n이웃 유사도",
+       "base__ad_density": "적용가능도메인\n국소 밀도", "base__disagreement": "모델 불일치",
+       "base__conformal_cb": "컨포멀 (ChemBERTa)",
+       "axis__fp_primary__B_combined": "B 통합 (지문)", "axis__fp_primary__B1_protonation": "B1 양성자화 (지문)",
+       "axis__cb_augmented__A": "A 표기 (ChemBERTa)", "axis__fp_primary__B1_tautomer": "B1 호변이성질체 (지문)",
+       "axis__cb_augmented__B1_protonation": "B1 양성자화 (ChemBERTa)",
+       "axis__cb_augmented__B3_stereo": "B3 입체 (ChemBERTa)", "axis__fp_primary__B3_stereo": "B3 입체 (지문)",
+       "axis__cb_augmented__B_combined": "B 통합 (ChemBERTa)",
+       "axis__cb_augmented__B1_tautomer": "B1 호변이성질체 (ChemBERTa)"}
+gg = (ev.dropna(subset=["spearman_vs_abs_error"]).groupby(["group", "signal"])["spearman_vs_abs_error"]
+        .median().reset_index().sort_values("spearman_vs_abs_error"))
+gg = gg[gg.signal.isin(SIG)]
+fig, ax = plt.subplots(figsize=(8.6, 6.0))
+ax.barh(np.arange(len(gg)), gg.spearman_vs_abs_error, height=.72,
+        color=[ACC if r == "축" else "#98A6A1" for r in gg.group])
+ax.set_yticks(np.arange(len(gg))); ax.set_yticklabels([SIG[x] for x in gg.signal], fontsize=9)
+for yi, v in zip(np.arange(len(gg)), gg.spearman_vs_abs_error):
+    ax.text(v + .006, yi, f"{v:.3f}", va="center", fontsize=8.5, color="#333")
+ax.set_xlabel("실제 오차와의 Spearman 상관 (22종 중앙값, test)")
+ax.set_xlim(0, .44)
+ax.set_title("신호별 오차 판별력\n감사 대상은 지문 대표 모델의 예측", fontsize=11, pad=12)
+from matplotlib.patches import Patch
+ax.legend(handles=[Patch(color=ACC, label="이번 연구의 축 신호"), Patch(color="#98A6A1", label="기존 기준선")],
+          frameon=False, fontsize=9, loc="lower right")
 fig.savefig(f"{OUT}/01_상관.png"); plt.close(fig)
 
 # --- 그림 2: 기존 신호와의 중복성 ---
