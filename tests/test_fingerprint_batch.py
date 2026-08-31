@@ -43,3 +43,29 @@ def test_duplicate_prediction_uid_is_incomplete(tmp_path):
     )
 
     assert not result_is_complete("demo", split_path, output_dir)
+
+
+def test_artifact_check_requires_all_seed_models(tmp_path):
+    split_path = tmp_path / "processed" / "demo" / "splits.csv"
+    split_path.parent.mkdir(parents=True)
+    pd.DataFrame({"row_uid": ["a", "b"]}).to_csv(split_path, index=False)
+
+    output_dir = tmp_path / "outputs"
+    dataset_dir = output_dir / "demo"
+    dataset_dir.mkdir(parents=True)
+    pd.DataFrame({"row_uid": ["a", "b"]}).to_csv(
+        dataset_dir / "fingerprint_predictions.csv", index=False
+    )
+    (dataset_dir / "fingerprint_metrics.json").write_text(
+        json.dumps({"dataset": "demo", "rows": 2}), encoding="utf-8"
+    )
+
+    artifact_dir = tmp_path / "artifacts"
+    model_dir = artifact_dir / "demo" / "models"
+    model_dir.mkdir(parents=True)
+    assert not result_is_complete("demo", split_path, output_dir, artifact_dir)
+
+    for seed in [42, 43, 44, 45, 46]:
+        (model_dir / f"rf_seed_{seed}.joblib").touch()
+        (model_dir / f"xgb_seed_{seed}.json").touch()
+    assert result_is_complete("demo", split_path, output_dir, artifact_dir)

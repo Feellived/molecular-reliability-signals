@@ -21,6 +21,7 @@ from fingerprint_models import MorganConfig, make_model, make_morgan_matrix, pre
 
 SEEDS = [42, 43, 44, 45, 46]
 MODELS = ["rf", "xgb"]
+HANDOFF_COLUMNS = ["row_uid", "cv_fold", "pred_oof_rf", "pred_oof_xgb"]
 FORBIDDEN_FEATURES = {
     "Y_final", "split", "dataset", "task_type", "aps_true_pvalue",
     "aps_calibrated_margin", "conformal_true_score", "row_uid",
@@ -38,7 +39,7 @@ def base_meta_oof(frame: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     y = pd.to_numeric(frame["Y_final"]).to_numpy(int if task == "classification" else float)
     train = frame["split"].eq("train").to_numpy()
     meta = frame["split"].eq("meta").to_numpy()
-    folds = sorted(frame.loc[meta, "cv_fold"].astype(int).unique())
+    folds = [int(value) for value in sorted(frame.loc[meta, "cv_fold"].astype(int).unique())]
     result = frame.loc[meta, ["row_uid", "cv_fold", "Y_final"]].copy().reset_index(drop=True)
     meta_indices = np.flatnonzero(meta)
     predictions: dict[str, np.ndarray] = {
@@ -74,6 +75,26 @@ def base_meta_oof(frame: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     return result, metadata
 
 
+def make_handoff_oof(base: pd.DataFrame) -> pd.DataFrame:
+    """담당 4 전달용 OOF 파일을 정답 열 없이 고정된 형식으로 만든다."""
+    renamed = base.rename(
+        columns={
+            "pred_rf_meta_fold_excluded": "pred_oof_rf",
+            "pred_xgb_meta_fold_excluded": "pred_oof_xgb",
+        }
+    )
+    missing = sorted(set(HANDOFF_COLUMNS) - set(renamed.columns))
+    if missing:
+        raise ValueError(f"OOF 전달 파일에 필요한 열이 없습니다: {missing}")
+    result = renamed[HANDOFF_COLUMNS].copy()
+    result["cv_fold"] = pd.to_numeric(result["cv_fold"], errors="raise").astype(int)
+    if result["row_uid"].duplicated().any():
+        raise ValueError("OOF 전달 파일의 row_uid가 중복됩니다")
+    if result[["pred_oof_rf", "pred_oof_xgb"]].isna().any().any():
+        raise ValueError("OOF 전달 파일의 예측값에 결측이 있습니다")
+    return result
+
+
 def meta_level_oof(frame: pd.DataFrame, signals: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     task = infer_task(frame["Y_final"])
     merged = frame[["row_uid", "split", "cv_fold", "Y_final"]].merge(
@@ -101,7 +122,7 @@ def meta_level_oof(frame: pd.DataFrame, signals: pd.DataFrame) -> tuple[pd.DataF
     if not features:
         raise ValueError("meta-level CV에 사용할 안전한 숫자 신호가 없습니다")
     prediction = np.full(len(meta), np.nan, dtype=float)
-    folds = sorted(meta["cv_fold"].astype(int).unique())
+    folds = [int(value) for value in sorted(meta["cv_fold"].astype(int).unique())]
     for fold in folds:
         valid = meta["cv_fold"].eq(fold).to_numpy()
         fit = ~valid
@@ -146,6 +167,7 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=200)
     args = parser.parse_args()
     datasets = []
+    validation_rows = []
     for split_path in sorted(args.processed_dir.glob("*/splits.csv")):
         frame = pd.read_csv(split_path, low_memory=False)
         if int(frame["split"].eq("meta").sum()) >= args.limit:
@@ -153,8 +175,45 @@ def main() -> None:
         dataset = split_path.parent.name
         target = args.meta_output_dir / dataset
         target.mkdir(parents=True, exist_ok=True)
-        base, base_info = base_meta_oof(frame)
-        base.to_csv(target / "base_model_meta_oof.csv", index=False)
+        base_path = target / "base_model_meta_oof.csv"
+        if base_path.exists():
+            base = pd.read_csv(base_path, low_memory=False)
+            base_info = {
+                "status": "existing_file_reused",
+                "rows": len(base),
+            }
+        else:
+            base, base_info = base_meta_oof(frame)
+            base.to_csv(base_path, index=False)
+        handoff = make_handoff_oof(base)
+        handoff.to_csv(target / "oof_predictions.csv", index=False)
+        expected = frame.loc[frame["split"].eq("meta"), ["row_uid", "cv_fold"]].copy()
+        expected["cv_fold"] = expected["cv_fold"].astype(int)
+        row_uids_match = set(handoff["row_uid"].astype(str)) == set(
+            expected["row_uid"].astype(str)
+        )
+        folds_valid = set(handoff["cv_fold"]).issubset({0, 1, 2, 3, 4})
+        valid = (
+            len(handoff) == len(expected)
+            and handoff["row_uid"].is_unique
+            and row_uids_match
+            and folds_valid
+            and not handoff[["pred_oof_rf", "pred_oof_xgb"]].isna().any().any()
+        )
+        validation_rows.append(
+            {
+                "dataset": dataset,
+                "expected_meta_rows": len(expected),
+                "oof_rows": len(handoff),
+                "row_uid_unique": bool(handoff["row_uid"].is_unique),
+                "row_uids_match": row_uids_match,
+                "folds_valid": folds_valid,
+                "missing_predictions": int(
+                    handoff[["pred_oof_rf", "pred_oof_xgb"]].isna().sum().sum()
+                ),
+                "valid": valid,
+            }
+        )
         signals_path = args.output_dir / dataset / "role2_signals.csv"
         meta_info = {"status": "skipped", "reason": "role2_signals.csv missing"}
         if signals_path.exists():
@@ -166,7 +225,15 @@ def main() -> None:
         )
         datasets.append(dataset)
         print(f"[DONE] {dataset}")
+    validation = pd.DataFrame(validation_rows)
+    validation_path = args.meta_output_dir / "oof_validation_summary.csv"
+    validation_path.parent.mkdir(parents=True, exist_ok=True)
+    validation.to_csv(validation_path, index=False)
+    if not validation.empty and not validation["valid"].all():
+        failed = validation.loc[~validation["valid"], "dataset"].tolist()
+        raise ValueError(f"OOF 검증 실패: {failed}")
     print(f"meta {args.limit}건 미만 처리: {len(datasets)}개")
+    print(f"검증 요약: {validation_path}")
 
 
 if __name__ == "__main__":

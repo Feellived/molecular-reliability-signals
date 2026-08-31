@@ -11,6 +11,7 @@ from pathlib import Path
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("MKL_NUM_THREADS", "1")
 
+import joblib
 import numpy as np
 import pandas as pd
 from sklearn.metrics import (
@@ -35,6 +36,17 @@ from fingerprint_models import (
 
 SEEDS = [42, 43, 44, 45, 46]
 MODEL_NAMES = ["rf", "xgb"]
+
+
+def save_fitted_model(model, model_name: str, path: Path) -> None:
+    """학습된 지문 모델을 모델 종류에 맞는 형식으로 저장한다."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if model_name == "xgb":
+        model.save_model(path)
+    elif model_name == "rf":
+        joblib.dump(model, path, compress=3)
+    else:
+        raise ValueError(f"지원하지 않는 모델: {model_name}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -110,11 +122,17 @@ def main() -> int:
     else:
         primary_model = min(MODEL_NAMES, key=lambda name: cv_results[name]["rmse"])
     predictions = {}
+    saved_models: list[str] = []
+    model_dir = args.artifact_dir / args.dataset / "models"
     for model_name in MODEL_NAMES:
         per_seed = []
         for seed in SEEDS:
             model = make_model(model_name, task_type, seed)
             model.fit(matrix[train_mask], y[train_mask])
+            suffix = ".json" if model_name == "xgb" else ".joblib"
+            model_path = model_dir / f"{model_name}_seed_{seed}{suffix}"
+            save_fitted_model(model, model_name, model_path)
+            saved_models.append(str(model_path))
             per_seed.append(predict_values(model, matrix, task_type))
         stack = np.vstack(per_seed)
         predictions[model_name] = {
@@ -160,6 +178,7 @@ def main() -> int:
         "elapsed_seconds": round(time.perf_counter() - started, 3),
         "prediction_path": str(prediction_path),
         "fingerprint_cache": str(cache_path),
+        "saved_models": saved_models,
     }
     metrics_path.write_text(
         json.dumps(metrics_payload, ensure_ascii=False, indent=2) + "\n",

@@ -29,7 +29,12 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def result_is_complete(dataset: str, split_path: Path, output_dir: Path) -> bool:
+def result_is_complete(
+    dataset: str,
+    split_path: Path,
+    output_dir: Path,
+    artifact_dir: Path | None = None,
+) -> bool:
     prediction_path = output_dir / dataset / "fingerprint_predictions.csv"
     metrics_path = output_dir / dataset / "fingerprint_metrics.json"
     if not prediction_path.exists() or not metrics_path.exists():
@@ -40,12 +45,21 @@ def result_is_complete(dataset: str, split_path: Path, output_dir: Path) -> bool
         metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
     except (OSError, ValueError, json.JSONDecodeError):
         return False
-    return (
+    predictions_complete = (
         len(predictions) == expected_rows
         and predictions["row_uid"].is_unique
         and metrics.get("dataset") == dataset
         and metrics.get("rows") == expected_rows
     )
+    if not predictions_complete or artifact_dir is None:
+        return predictions_complete
+    model_dir = artifact_dir / dataset / "models"
+    expected_models = {
+        *(f"rf_seed_{seed}.joblib" for seed in [42, 43, 44, 45, 46]),
+        *(f"xgb_seed_{seed}.json" for seed in [42, 43, 44, 45, 46]),
+    }
+    actual_models = {path.name for path in model_dir.glob("*") if path.is_file()}
+    return expected_models.issubset(actual_models)
 
 
 def write_manifest(path: Path, payload: dict) -> None:
@@ -83,7 +97,9 @@ def main() -> int:
     failures = 0
     for position, dataset in enumerate(datasets, start=1):
         split_path = available[dataset]
-        if not args.force and result_is_complete(dataset, split_path, args.output_dir):
+        if not args.force and result_is_complete(
+            dataset, split_path, args.output_dir, args.artifact_dir
+        ):
             print(f"[{position:02d}/{len(datasets):02d}] {dataset}: already complete")
             manifest["datasets"][dataset] = {"status": "skipped_complete"}
             manifest["updated_at"] = utc_now()
@@ -111,7 +127,9 @@ def main() -> int:
             completed.stdout + ("\n[stderr]\n" + completed.stderr if completed.stderr else ""),
             encoding="utf-8",
         )
-        complete = result_is_complete(dataset, split_path, args.output_dir)
+        complete = result_is_complete(
+            dataset, split_path, args.output_dir, args.artifact_dir
+        )
         status = "complete" if completed.returncode == 0 and complete else "failed"
         manifest["datasets"][dataset] = {
             "status": status,

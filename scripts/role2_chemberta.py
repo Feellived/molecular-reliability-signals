@@ -123,6 +123,8 @@ class ChemBertaRunner:
         if prediction_path.exists() and done_path.exists():
             print(f"[SKIP] {dataset}/{version}")
             return
+        # 중단 후 재개해도 같은 데이터셋·버전은 같은 초기 상태에서 시작한다.
+        set_seed(int(self.config["seed"]))
 
         frame = pd.read_csv(processed_dir / dataset / "splits.csv")
         train = frame[frame["split"].eq("train")].copy()
@@ -188,6 +190,7 @@ class ChemBertaRunner:
                 {
                     "dataset": dataset,
                     "version": version,
+                    "seed": int(self.config["seed"]),
                     "task": task,
                     "target_mean": mean,
                     "target_std": std,
@@ -212,22 +215,55 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--checkpoint-dir", type=Path, required=True)
     parser.add_argument("--config", type=Path, default=Path("configs/role2.yaml"))
     parser.add_argument("--dataset", action="append")
+    parser.add_argument(
+        "--seeds",
+        nargs="+",
+        type=int,
+        help="여러 seed를 지정하면 output/checkpoint 아래 seed_<값> 폴더에 각각 저장",
+    )
     return parser.parse_args()
 
 
-def main() -> None:
-    args = parse_args()
-    config = yaml.safe_load(args.config.read_text(encoding="utf-8"))
-    seed = int(config["seed"])
+def set_seed(seed: int) -> None:
+    """Python·NumPy·PyTorch 난수 seed를 함께 고정한다."""
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
+
+
+def main() -> None:
+    args = parse_args()
+    base_config = yaml.safe_load(args.config.read_text(encoding="utf-8"))
+    seeds = args.seeds or [int(base_config["seed"])]
     datasets = args.dataset or sorted(path.parent.name for path in args.processed_dir.glob("*/splits.csv"))
-    runner = ChemBertaRunner(config)
-    for dataset in datasets:
-        runner.run(dataset, args.processed_dir, args.output_dir, args.checkpoint_dir, augmented=False)
-        runner.run(dataset, args.processed_dir, args.output_dir, args.checkpoint_dir, augmented=True)
+    use_seed_subdirs = args.seeds is not None
+    for seed in seeds:
+        set_seed(seed)
+        config = dict(base_config)
+        config["seed"] = seed
+        output_dir = args.output_dir / f"seed_{seed}" if use_seed_subdirs else args.output_dir
+        checkpoint_dir = (
+            args.checkpoint_dir / f"seed_{seed}"
+            if use_seed_subdirs
+            else args.checkpoint_dir
+        )
+        runner = ChemBertaRunner(config)
+        for dataset in datasets:
+            runner.run(
+                dataset,
+                args.processed_dir,
+                output_dir,
+                checkpoint_dir,
+                augmented=False,
+            )
+            runner.run(
+                dataset,
+                args.processed_dir,
+                output_dir,
+                checkpoint_dir,
+                augmented=True,
+            )
 
 
 if __name__ == "__main__":
