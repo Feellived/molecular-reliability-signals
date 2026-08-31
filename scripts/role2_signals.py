@@ -161,6 +161,36 @@ def run_dataset(dataset: str, processed_dir: Path, output_dir: Path, artifact_di
         columns = [column for column in frame if column != "row_uid" and column not in combined]
         combined = pd.concat([combined, frame[columns].reset_index(drop=True)], axis=1)
     combined.to_csv(dataset_output / "role2_signals.csv", index=False)
+    # 담당 4가 정답을 입력 특징으로 쓰지 않도록 추론 가능 신호와 평가 전용 열을 분리한다.
+    evaluation_only = {
+        "Y_final",
+        "aps_true_pvalue",
+        "aps_calibrated_margin",
+        "conformal_true_score",
+    }
+    feature_columns = [
+        column
+        for column in combined
+        if column not in evaluation_only and column not in {"split", "dataset", "task_type"}
+    ]
+    evaluation_columns = [
+        column
+        for column in [
+            "row_uid",
+            "dataset",
+            "task_type",
+            "split",
+            "Y_final",
+            "aps_true_pvalue",
+            "aps_calibrated_margin",
+            "conformal_true_score",
+        ]
+        if column in combined
+    ]
+    combined[feature_columns].to_csv(dataset_output / "role2_features.csv", index=False)
+    combined[evaluation_columns].to_csv(
+        dataset_output / "role2_evaluation_only.csv", index=False
+    )
     print(f"[DONE] {dataset}: {len(combined)} rows, {len(combined.columns) - 1} signals")
 
 
