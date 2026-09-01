@@ -40,6 +40,9 @@ from pathlib import Path
 
 import pandas as pd
 import rdkit
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from dataset_repairs import apply_known_repairs  # noqa: E402
 from rdkit import Chem, RDLogger
 from rdkit.Chem.MolStandardize import rdMolStandardize
 
@@ -241,10 +244,12 @@ def _load_axis_decision(reports_dir: Path) -> dict[str, dict[str, bool]]:
 
 
 def _process_dataset(
-    dataset: str, splits_path: Path, flags: dict[str, bool], out_dir: Path, workers: int
+    dataset: str, splits_path: Path, flags: dict[str, bool], out_dir: Path, workers: int,
+    target_splits: tuple[str, ...] = TARGET_SPLITS,
 ) -> dict:
     splits = pd.read_csv(splits_path)
-    target = splits[splits["split"].isin(TARGET_SPLITS)].copy()
+    splits, _ = apply_known_repairs(splits)
+    target = splits[splits["split"].isin(target_splits)].copy()
 
     tasks = [
         (
@@ -304,6 +309,11 @@ def main() -> int:
     parser.add_argument("--datasets", nargs="*", default=None, help="일부만 처리할 때")
     parser.add_argument("--workers", type=int, default=max(1, mp.cpu_count() - 2))
     parser.add_argument("--resume", action="store_true", help="이미 만든 물성은 건너뛴다")
+    parser.add_argument(
+        "--target-splits", nargs="+", default=list(TARGET_SPLITS),
+        help="변형을 만들 분할. 기본은 meta와 test다. 결합 규칙 학습 표본을 늘리려면 "
+             "train을 추가하되, 그 경우 폴드 외 예측을 별도로 마련해야 한다",
+    )
     args = parser.parse_args()
 
     processed_dir = Path(args.processed_dir)
@@ -326,7 +336,9 @@ def main() -> int:
             continue
 
         flags = decision[dataset]
-        summary = _process_dataset(dataset, splits_path, flags, out_dir, args.workers)
+        summary = _process_dataset(
+            dataset, splits_path, flags, out_dir, args.workers, tuple(args.target_splits)
+        )
         summaries.append(summary)
         print(
             f"[{i}/{len(datasets)}] {dataset}: "
@@ -357,7 +369,7 @@ def main() -> int:
         "generated_by": "juhyeong (담당4가 담당3 작업 대행)",
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "source_splits": str(processed_dir),
-        "target_splits": list(TARGET_SPLITS),
+        "target_splits": list(args.target_splits),
         "axes": list(AXES),
         "parameters": {
             "max_tautomers": MAX_TAUTOMERS,
