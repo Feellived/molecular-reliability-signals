@@ -97,9 +97,17 @@ function render(data) {
   const classification = data.task_type === "classification";
   $("pred-label").textContent = classification ? "양성 확률" : "예측값";
   $("pred-value").textContent = num(data.prediction, classification ? 3 : 2);
-  $("pred-interval").textContent = data.interval
-    ? `${num(data.interval.lower, 2)} ~ ${num(data.interval.upper, 2)} (${Math.round(data.interval.coverage * 100)}% 구간)`
-    : "";
+  const set = data.prediction_set;
+  if (data.interval) {
+    $("pred-interval").textContent =
+      `${num(data.interval.lower, 2)} ~ ${num(data.interval.upper, 2)} (${Math.round(data.interval.coverage * 100)}% 구간)`;
+  } else if (set) {
+    const labels = set.labels.map((l) => (l === 1 ? "양성" : "음성")).join(", ") || "없음";
+    $("pred-interval").textContent =
+      `${Math.round(set.coverage * 100)}% 예측 집합 {${labels}}` + (set.size === 1 ? "" : " · 가르지 못함");
+  } else {
+    $("pred-interval").textContent = "";
+  }
 
   $("verdict-level").textContent = data.verdict.level;
   $("verdict-level").className = `badge ${data.verdict.level}`;
