@@ -30,6 +30,7 @@ import joblib
 import numpy as np
 from rdkit import Chem, RDLogger
 from rdkit.Chem import rdFingerprintGenerator
+from rdkit.Chem.Draw import rdMolDraw2D
 from rdkit.Chem.MolStandardize import rdMolStandardize
 
 RDLogger.DisableLog("rdApp.*")
@@ -72,6 +73,33 @@ def fingerprints(smiles_list) -> np.ndarray:
                         generator.GetFingerprintAsNumPy(mol).astype(np.uint8).tobytes(),
                         dtype=np.uint8))
     return np.vstack(rows) if rows else np.zeros((0, MORGAN_BITS), dtype=np.uint8)
+
+
+def depict(smiles: str, width: int = 260, height: int = 170,
+           reference: str | None = None) -> str | None:
+    """분자 구조를 SVG로 그린다. 화학 도구인데 문자열만 보이면 읽을 수가 없다.
+
+    reference를 주면 그 분자와 다른 원자를 표시한다. 호변이성질체처럼 거의
+    같아 보이는 변형에서 어디가 달라졌는지 눈으로 짚어주기 위해서다.
+    """
+    mol = Chem.MolFromSmiles(str(smiles))
+    if mol is None:
+        return None
+    highlight = []
+    if reference:
+        base = Chem.MolFromSmiles(reference)
+        if base is not None:
+            match = mol.GetSubstructMatch(base)
+            matched = set(match)
+            highlight = [a.GetIdx() for a in mol.GetAtoms() if a.GetIdx() not in matched]
+    drawer = rdMolDraw2D.MolDraw2DSVG(width, height)
+    options = drawer.drawOptions()
+    options.clearBackground = False
+    options.bondLineWidth = 1.4
+    options.setHighlightColour((0.98, 0.88, 0.80, 1.0))  # 원본과 달라진 원자. 옅은 호박색
+    rdMolDraw2D.PrepareAndDrawMolecule(drawer, mol, highlightAtoms=highlight or None)
+    drawer.FinishDrawing()
+    return drawer.GetDrawingText()
 
 
 def tanimoto(query: np.ndarray, matrix: np.ndarray) -> np.ndarray:
