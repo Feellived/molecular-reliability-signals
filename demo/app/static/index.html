@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MIST · 입력 상태 민감성 기반 예측 신뢰성</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>MIST</h1>
+    <p class="sub">같은 분자를 다르게 적어 넣었을 때 모델이 답을 바꾸는가</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <form id="query" autocomplete="off">
+    <div class="field">
+      <label for="smiles">분자 (SMILES)</label>
+      <input id="smiles" name="smiles" placeholder="CC(C)(C)NCC(O)c1ccc(O)c(CO)c1" required>
+    </div>
+    <div class="field narrow">
+      <label for="dataset">물성</label>
+      <select id="dataset" name="dataset"></select>
+    </div>
+    <button type="submit" id="submit">평가</button>
+  </form>
+
+  <div class="examples">
+    예시:
+    <button type="button" data-smiles="CC(C)(C)NCC(O)c1ccc(O)c(CO)c1" data-dataset="herg">살부타몰 · hERG</button>
+    <button type="button" data-smiles="Cn1cnc2c1c(=O)n(C)c(=O)n2C" data-dataset="lipophilicity_astrazeneca">카페인 · logD</button>
+    <button type="button" data-smiles="CC(=O)Oc1ccccc1C(=O)O" data-dataset="caco2_wang">아스피린 · 장투과도</button>
+  </div>
+
+  <section id="status" hidden></section>
+
+  <section id="result" hidden>
+    <div class="card headline">
+      <div class="prediction">
+        <span class="label" id="pred-label">예측값</span>
+        <span class="value" id="pred-value">—</span>
+        <span class="interval" id="pred-interval"></span>
+      </div>
+      <div class="verdict" id="verdict">
+        <span class="badge" id="verdict-level"></span>
+        <p id="verdict-headline"></p>
+        <ul id="verdict-notes"></ul>
+      </div>
+    </div>
+
+    <h2>신뢰성 축</h2>
+    <p class="hint">세 축은 서로 다른 것을 재므로 하나의 점수로 합치지 않는다.</p>
+    <div class="axes" id="axes"></div>
+
+    <h2>축별 상세</h2>
+    <p class="hint">어떤 변형을 실제로 만들었고, 쓰지 않은 축은 왜 제외했는지.</p>
+    <div id="detail"></div>
+
+    <details class="meta">
+      <summary>참고값과 설정</summary>
+      <div id="meta-body"></div>
+    </details>
+  </section>
+</main>
+
+<footer class="wrap">
+  <p>TOBIG&#39;s · MIST (Molecular Input-State sensitiviTy) · TDC ADMET 22종</p>
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
