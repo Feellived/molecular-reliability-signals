@@ -14,7 +14,6 @@ import os
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -75,9 +74,7 @@ def health() -> dict:
             "cached": load_bundle.cache_info()._asdict()}
 
 
-@app.get("/")
-def index() -> FileResponse:
-    return FileResponse(STATIC / "index.html")
-
-
-app.mount("/static", StaticFiles(directory=STATIC), name="static")
+# 화면 파일은 마지막에 최상위로 붙인다. 위의 /api 경로가 먼저 잡히고,
+# 나머지는 정적 파일로 넘어간다. 상대 경로를 쓰므로 서버 없이 정적으로
+# 배포할 때도 같은 index.html이 그대로 돈다.
+app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")
