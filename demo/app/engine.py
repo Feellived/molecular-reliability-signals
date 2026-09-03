@@ -186,6 +186,12 @@ class Bundle:
         return {k: v for k, v in self.axes.items() if not k.startswith("_")}
 
 
+@lru_cache(maxsize=8)
+def load_bundle(root: str, dataset: str) -> Bundle:
+    """물성별 산출물을 캐시한다. 매 호출마다 모델을 다시 읽으면 8초가 걸린다."""
+    return Bundle(Path(root), dataset)
+
+
 def predict_fingerprint(bundle: Bundle, smiles_list) -> np.ndarray:
     """시드별 예측의 평균. 시드 간 표준편차는 컨포멀 척도로 쓴다."""
     matrix = fingerprints(smiles_list)

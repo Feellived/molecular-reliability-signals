@@ -24,9 +24,9 @@ import numpy as np
 from rdkit import Chem
 
 from engine import (
-    AD_NEIGHBORS, AD_SIMILARITY_CUTOFF, AXIS_KEYS, AxisResult, Bundle,
+    AD_NEIGHBORS, AD_SIMILARITY_CUTOFF, AXIS_KEYS, AxisResult,
     fingerprints, gen_a_axis, gen_protonation, gen_stereo, gen_tautomers,
-    predict_chemberta, predict_fingerprint, tanimoto,
+    load_bundle, predict_chemberta, predict_fingerprint, tanimoto,
 )
 
 HIGH, MODERATE = 0.85, 0.65   # 백분위 경계. 상위 15퍼센트를 높음으로 본다
@@ -78,7 +78,7 @@ def _verdict(prediction, interval, axes, ad_percentile, task) -> dict:
 
 
 def score(bundle_root: Path, dataset: str, smiles: str) -> dict:
-    bundle = Bundle(Path(bundle_root), dataset)
+    bundle = load_bundle(str(Path(bundle_root).resolve()), dataset)
     mol = Chem.MolFromSmiles(smiles) if smiles and smiles.strip() else None
     if mol is None or mol.GetNumAtoms() == 0:
         # 빈 문자열은 RDKit이 원자 0개인 분자로 받아들여 통과시킨다.
