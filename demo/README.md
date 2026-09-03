@@ -52,8 +52,29 @@ python app/validate.py
 
 시험 분할에 이미 있는 분자를 다시 채점해 저장값과 대조한다. 22종 176건에서 실패 0건이며, 데모 예측은 파이프라인 재적합과 평균 절대차 0.0000으로 일치한다. 적용가능도메인은 최대 절대차 0.000049다. 표현 불안정성 A는 무작위 SMILES 생성 시드가 파이프라인과 달라 변형 집합 자체가 다르므로 대조 대상에서 뺀다.
 
+### 배포
+
+HuggingFace Spaces(Docker)를 쓴다. 전체 산출물은 585MB이고 그중 ld50_zhu의 모델 캐시 하나가 247MB이므로, 이야기가 되는 물성 넷만 실어 81MB로 줄인다.
+
+```
+python deploy/build_space.py \
+  --bundle ../data/processed/scores_role4/demo_bundle \
+  --chemberta ../../Jiye/checkpoints/chemberta \
+  --out /tmp/mist-space
+```
+
+만들어진 폴더를 Space 저장소에 그대로 올리면 된다. `README.md`의 앞머리가 Spaces 설정을 담고 있고 Dockerfile이 7860 포트로 띄운다. `--datasets`로 물성을 바꿀 수 있다.
+
+기본 넷은 이렇게 골랐다. bbb_martins는 호변이성질체 하나로 예측이 0.012에서 0.535로 바뀌는 사례이고, herg는 안전성 평가에서 가장 널리 쓰이며, lipophilicity_astrazeneca는 컨포멀 구간이 나오는 회귀이고, caco2_wang은 양성자화 축이 제외되는 사례다. 마지막 하나가 중요하다. 쓸 수 없는 축을 왜 제외했는지 말하는 것이 이 도구의 고유한 부분이라 그 장면이 빠지면 안 된다.
+
+체크포인트와 산출물 경로는 `MIST_CHEMBERTA`와 `MIST_BUNDLE` 환경변수로 정한다. 저장소 구조에 의존하지 않으므로 배포 환경에서 그대로 돈다.
+
+`requirements.txt`의 scikit-learn 판을 고정해두었다. 지문 모델이 joblib으로 저장되어 있어 판이 다르면 역직렬화가 조용히 실패하거나 다른 결과를 낸다.
+
 ### 남은 일
 
-배포는 HuggingFace Spaces(Docker)를 염두에 둔다. 모델 캐시가 585MB이고 ld50_zhu 하나가 247MB이므로 물성을 몇 종만 실어 올리는 편이 낫다.
+Docker 이미지 빌드는 아직 검증하지 않았다. 배포 폴더를 저장소 밖에서 uvicorn으로 띄워 네 물성 모두 정상 동작하는 것까지는 확인했다.
 
 회귀 물성의 ChemBERTa 컨포멀은 담당2의 척도 함수를 재구성할 수 없어 결합 규칙에서 뺐다. 정의를 확인하면 채울 수 있다.
+
+판정 등급의 경계값이 임의다. 상위 15퍼센트를 주의로 두었는데 실제 오차율에 맞춰 정할 여지가 있다.

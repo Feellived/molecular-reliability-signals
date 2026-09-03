@@ -1,0 +1,13 @@
+# 지문 모델 객체가 joblib으로 저장되어 있어 scikit-learn 판을 고정한다.
+# 판이 다르면 역직렬화가 조용히 실패하거나 경고와 함께 다른 결과를 낸다.
+fastapi==0.141.1
+uvicorn[standard]==0.41.1
+numpy==2.4.6
+pandas==3.0.5
+scikit-learn==1.9.0
+xgboost==3.2.0
+joblib==1.5.3
+rdkit==2025.9.6
+dimorphite-dl==2.0.4
+torch==2.13.0
+transformers==5.16.1

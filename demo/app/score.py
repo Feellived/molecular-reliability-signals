@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -30,6 +31,19 @@ from engine import (
 )
 
 HIGH, MODERATE = 0.85, 0.65   # 백분위 경계. 상위 15퍼센트를 높음으로 본다
+
+
+def chemberta_root() -> Path | None:
+    """언어 모델 체크포인트 위치. 배포 환경에서는 저장소 구조를 쓸 수 없다."""
+    override = os.environ.get("MIST_CHEMBERTA")
+    if override:
+        path = Path(override)
+        return path if path.exists() else None
+    for candidate in (Path(__file__).resolve().parent / "checkpoints",
+                      Path(__file__).resolve().parents[3] / "Jiye" / "checkpoints" / "chemberta"):
+        if candidate.exists():
+            return candidate
+    return None
 
 
 def _has_final_consonant(word: str) -> bool:
@@ -137,10 +151,9 @@ def score(bundle_root: Path, dataset: str, smiles: str) -> dict:
     every = [parent] + representation + b_variants
     fp_seeds = predict_fingerprint(bundle, every)
     fp_pred = fp_seeds.mean(axis=0)
-    checkpoint = Path(bundle.manifest.get("chemberta_root", "")) if False else None
     cb_pred = None
-    cb_root = Path(__file__).resolve().parents[3] / "Jiye" / "checkpoints" / "chemberta"
-    if (cb_root / dataset / "augmented").exists():
+    cb_root = chemberta_root()
+    if cb_root is not None and (cb_root / dataset / "augmented").exists():
         cb_pred = predict_chemberta(cb_root / dataset / "augmented", every)
 
     spread_fp = float(np.std(fp_pred)) or 1.0
