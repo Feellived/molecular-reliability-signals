@@ -133,9 +133,15 @@ def to_percentile(values, sorted_reference) -> np.ndarray:
                            side="right") / len(sorted_reference)
 
 
-# 분자 하나로는 재현할 수 없는 특징. 담당2의 ChemBERTa 컨포멀 보정값이
-# 산출물에 없어 새 분자의 예측 집합 크기를 만들 수 없다.
-NOT_REPRODUCIBLE = ("base__conformal_cb",)
+# 분자 하나로 재현할 수 없는 특징. 물성 유형에 따라 다르다.
+#
+# 분류는 담당2의 aps_qhat과 예측 확률만 있으면 예측 집합 크기가 나오므로
+# 모두 재현된다. 회귀는 그렇지 않다. 담당2의 ChemBERTa 컨포멀은 분자마다
+# 다른 척도(conformal_scale)를 쓰는데 그 값이 지문 모델의 시드 간 표준편차와
+# 상관 0.05로 무관하고 비율이 0.7에서 202까지 흔들린다. 즉 우리가 가진
+# 재료로 재구성할 수 없는 별도의 척도 함수이며, 정의를 확인하기 전에는
+# 새 분자에 적용할 수 없다.
+NOT_REPRODUCIBLE_BY_TASK = {"regression": ("base__conformal_cb",), "classification": ()}
 
 
 def build_combiner(frame: pd.DataFrame, reference: dict, columns=None) -> dict:
@@ -178,9 +184,16 @@ def build_conformal(frame: pd.DataFrame, role2_dir: Path, dataset: str,
                         usecols=["row_uid", "std_fp_primary", "split", "Y_final",
                                  "pred_fp_primary"])
     calib = role2["split"].eq("calib").to_numpy()
+    full = pd.read_csv(role2_dir / dataset / "role2_signals.csv", nrows=1)
+    chemberta = {}
+    for column, key in (("aps_qhat", "aps_qhat"), ("conformal_qhat", "conformal_qhat")):
+        if column in full.columns:
+            chemberta[key] = float(full[column].iloc[0])
+
     if task == "classification":
         record = {"task_type": task, "alpha": ALPHA,
-                  "note": "분류는 구간 대신 무작위화 APS 예측 집합을 낸다"}
+                  "note": "분류는 구간 대신 무작위화 APS 예측 집합을 낸다",
+                  "chemberta": chemberta}
         if aps.exists():
             record["aps_qhat"] = json.loads(aps.read_text(encoding="utf-8"))["qhat"]
             record["randomization_tag"] = "mist-fp-aps-v1"
@@ -197,7 +210,7 @@ def build_conformal(frame: pd.DataFrame, role2_dir: Path, dataset: str,
     point = role2["pred_fp_primary"].to_numpy(float)
     qhat = conformal_quantile(np.abs(truth[calib] - point[calib]) / scale[calib], ALPHA)
     return {"task_type": task, "alpha": ALPHA, "qhat": round(qhat, 8),
-            "scale_floor": round(floor, 8),
+            "scale_floor": round(floor, 8), "chemberta": chemberta,
             "scale": "시드 간 표준편차에 보정 분할 25백분위 하한을 더한 값",
             "interval": "예측값 ± qhat × 척도"}
 
@@ -309,10 +322,13 @@ def main() -> int:
         combiner = build_combiner(frame, reference)
         (target / "combiner.json").write_text(
             json.dumps(combiner, ensure_ascii=False, indent=2), encoding="utf-8")
+        dropped = NOT_REPRODUCIBLE_BY_TASK[frame["task_type"].iloc[0]]
         single = build_combiner(frame, reference,
-                                [c for c in reference if c not in NOT_REPRODUCIBLE])
-        single["note"] = ("분자 하나로 재현 가능한 특징만 쓴다. 담당2의 ChemBERTa "
-                          "컨포멀 보정값이 산출물에 없어 그 신호를 뺐다.")
+                                [c for c in reference if c not in dropped])
+        single["dropped"] = list(dropped)
+        single["note"] = ("분자 하나로 재현 가능한 특징만 쓴다. "
+                          + ("회귀는 담당2의 ChemBERTa 컨포멀 척도 함수를 재구성할 수 "
+                             "없어 그 신호를 뺐다." if dropped else "제외한 신호가 없다."))
         (target / "combiner_single.json").write_text(
             json.dumps(single, ensure_ascii=False, indent=2), encoding="utf-8")
         (target / "conformal.json").write_text(
