@@ -4,13 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MIST · 입력 상태 민감성 기반 예측 신뢰성</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 <header>
   <div class="wrap">
-    <h1>MIST</h1>
-    <p class="sub">같은 분자를 다르게 적어 넣었을 때 모델이 답을 바꾸는가</p>
+    <div class="brand">
+      <span class="mark">MIST</span>
+      <span class="expand">Molecular Input-State sensitiviTy</span>
+    </div>
+    <p class="tagline">같은 분자를 다르게 적어 넣었을 때 모델이 답을 바꾸는가</p>
   </div>
 </header>
 
@@ -18,45 +24,63 @@
   <form id="query" autocomplete="off">
     <div class="field">
       <label for="smiles">분자 (SMILES)</label>
-      <input id="smiles" name="smiles" placeholder="CC(C)(C)NCC(O)c1ccc(O)c(CO)c1" required>
+      <input id="smiles" placeholder="CC(C)(C)NCC(O)c1ccc(O)c(CO)c1" required>
     </div>
     <div class="field narrow">
       <label for="dataset">물성</label>
-      <select id="dataset" name="dataset"></select>
+      <select id="dataset"></select>
     </div>
     <button type="submit" id="submit">평가</button>
   </form>
 
   <div class="examples">
-    예시:
+    <span>예시</span>
+    <button type="button" data-smiles="CC(C)(C)NCC(O)c1ccc(O)c(CO)c1" data-dataset="bbb_martins">살부타몰 · 뇌혈관장벽</button>
     <button type="button" data-smiles="CC(C)(C)NCC(O)c1ccc(O)c(CO)c1" data-dataset="herg">살부타몰 · hERG</button>
     <button type="button" data-smiles="Cn1cnc2c1c(=O)n(C)c(=O)n2C" data-dataset="lipophilicity_astrazeneca">카페인 · logD</button>
     <button type="button" data-smiles="CC(=O)Oc1ccccc1C(=O)O" data-dataset="caco2_wang">아스피린 · 장투과도</button>
   </div>
 
-  <section id="status" hidden></section>
+  <div id="status" hidden></div>
 
   <section id="result" hidden>
-    <div class="card headline">
-      <div class="prediction">
-        <span class="label" id="pred-label">예측값</span>
-        <span class="value" id="pred-value">—</span>
-        <span class="interval" id="pred-interval"></span>
-      </div>
-      <div class="verdict" id="verdict">
-        <span class="badge" id="verdict-level"></span>
-        <p id="verdict-headline"></p>
-        <ul id="verdict-notes"></ul>
+
+    <div class="answer">
+      <figure class="structure" id="structure"></figure>
+      <div class="numbers">
+        <span class="cap" id="pred-label">예측값</span>
+        <span class="big" id="pred-value">—</span>
+        <span class="band" id="pred-band"></span>
+        <span class="smiles mono" id="canonical"></span>
       </div>
     </div>
 
-    <h2>신뢰성 축</h2>
-    <p class="hint">세 축은 서로 다른 것을 재므로 하나의 점수로 합치지 않는다.</p>
-    <div class="axes" id="axes"></div>
+    <div class="verdict" id="verdict">
+      <div class="verdict-head">
+        <span class="badge" id="verdict-level"></span>
+        <span class="verdict-cap">판정</span>
+      </div>
+      <p class="verdict-line" id="verdict-headline"></p>
+      <ul class="verdict-notes" id="verdict-notes"></ul>
+    </div>
 
-    <h2>축별 상세</h2>
-    <p class="hint">어떤 변형을 실제로 만들었고, 쓰지 않은 축은 왜 제외했는지.</p>
-    <div id="detail"></div>
+    <section class="block">
+      <h2>신뢰성 축</h2>
+      <p class="hint">세 축은 서로 다른 것을 잰다. 하나의 점수로 합치지 않는다.</p>
+      <div class="axes" id="axes"></div>
+    </section>
+
+    <section class="block" id="shift-block">
+      <h2>무엇이 예측을 흔들었나</h2>
+      <p class="hint">같은 물질을 다르게 적은 것뿐인데 모델의 답이 달라진다.</p>
+      <div class="shifts" id="shifts"></div>
+    </section>
+
+    <section class="block">
+      <h2>축별 판정</h2>
+      <p class="hint">어느 축을 썼고, 쓰지 않은 축은 왜 제외했는지.</p>
+      <div id="detail"></div>
+    </section>
 
     <details class="meta">
       <summary>참고값과 설정</summary>
@@ -66,7 +90,7 @@
 </main>
 
 <footer class="wrap">
-  <p>TOBIG&#39;s · MIST (Molecular Input-State sensitiviTy) · TDC ADMET 22종</p>
+  <p>TOBIG&#39;s · TDC ADMET 22종 · 세 신뢰성 축을 분리해 표시하며 단일 점수로 합산하지 않는다</p>
 </footer>
 
 <script src="/static/app.js"></script>

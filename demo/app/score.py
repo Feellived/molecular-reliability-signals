@@ -24,7 +24,7 @@ import numpy as np
 from rdkit import Chem
 
 from engine import (
-    AD_NEIGHBORS, AD_SIMILARITY_CUTOFF, AXIS_KEYS, AxisResult,
+    AD_NEIGHBORS, AD_SIMILARITY_CUTOFF, AXIS_KEYS, AxisResult, depict,
     fingerprints, gen_a_axis, gen_protonation, gen_stereo, gen_tautomers,
     load_bundle, predict_chemberta, predict_fingerprint, tanimoto,
 )
@@ -169,8 +169,13 @@ def score(bundle_root: Path, dataset: str, smiles: str) -> dict:
         stats = _axis_stats(parent_fp, chunk, spread_fp)
         result.dispersion = stats["dispersion"]
         result.max_deviation = stats["max_deviation"]
-        result.examples = [{"smiles": s, "prediction": round(float(v), 4)}
-                           for s, v in zip(group[:3], chunk[:3])]
+        # 변형 분자도 그려 원본과 나란히 놓는다. 거의 같아 보이는데 예측이
+        # 달라지는 것이 이 연구의 핵심이라 그림으로 보여야 전달된다.
+        result.examples = [
+            {"smiles": s, "prediction": round(float(v), 4),
+             "shift": round(float(v) - parent_fp, 4),
+             "svg": depict(s, reference=parent)}
+            for s, v in zip(group[:2], chunk[:2])]
         pooled.extend(chunk.tolist())
     pooled_stats = _axis_stats(parent_fp, np.array(pooled), spread_fp)
     cb_pooled = None
@@ -216,6 +221,7 @@ def score(bundle_root: Path, dataset: str, smiles: str) -> dict:
                        ad_percentile, bundle.task_type)
     return {
         "dataset": dataset, "input_smiles": smiles, "canonical_smiles": parent,
+        "svg": depict(parent, width=300, height=200),
         "task_type": bundle.task_type,
         "prediction": round(parent_fp, 4),
         "interval": interval,
