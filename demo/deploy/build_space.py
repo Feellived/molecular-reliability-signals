@@ -72,6 +72,13 @@ def main() -> int:
             raise SystemExit(f"체크포인트가 없다: {source}")
         shutil.copytree(source, out / "app" / "checkpoints" / dataset / "augmented")
 
+    # 물성 폴더 밖에 있는 산출물도 함께 옮긴다. 판정 경계 보정이 여기 있으며,
+    # 빠지면 배포본이 기본 경계값으로 떨어진다.
+    for name in ("verdict_calibration.json",):
+        source = bundle / name
+        if source.exists():
+            shutil.copy2(source, target / name)
+
     manifest["datasets"] = kept
     manifest["deployment"] = {
         "subset": list(args.datasets),

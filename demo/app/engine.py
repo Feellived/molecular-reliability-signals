@@ -206,6 +206,10 @@ class Bundle:
         self.reference = read("reference.json")
         self.combiner = read("combiner.json")
         self.combiner_single = read("combiner_single.json")
+        # 판정 등급의 경계와 각 구간의 실제 미달률. 없으면 기본값으로 떨어진다.
+        calibration = self.root / "verdict_calibration.json"
+        self.calibration = (json.loads(calibration.read_text(encoding="utf-8"))
+                            if calibration.exists() else None)
         self.conformal = read("conformal.json")
         self.axes = read("axes.json")
         self.models = [joblib.load(p) for p in sorted((base / "models").glob("*.joblib"))]

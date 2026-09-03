@@ -30,7 +30,9 @@ from engine import (
     load_bundle, predict_chemberta, predict_fingerprint, tanimoto,
 )
 
-HIGH, MODERATE = 0.85, 0.65   # 백분위 경계. 상위 15퍼센트를 높음으로 본다
+# 판정 경계의 기본값. 산출물에 보정 결과가 있으면 그 값으로 덮는다.
+# calibrate_verdict.py가 시험 분자 7979개에서 실제 미달률을 재어 고른 값이다.
+HIGH, MODERATE = 0.80, 0.30
 
 
 def chemberta_root() -> Path | None:
@@ -75,11 +77,16 @@ def _axis_stats(parent: float, values: np.ndarray, spread: float) -> dict:
             "relative": dispersion / spread if spread > 1e-9 else 0.0}
 
 
-def _verdict(prediction, interval, prediction_set, axes, ad_percentile, task) -> dict:
+def _verdict(prediction, interval, prediction_set, axes, ad_percentile, task,
+             calibration=None) -> dict:
     """신호를 근거로 판정 문장을 만든다. 계획서 7.3절의 예시 문장 형식을 따른다."""
-    hot = [a for a in axes if a.usable and a.percentile is not None and a.percentile >= HIGH]
+    high, moderate = HIGH, MODERATE
+    if calibration and calibration.get("chosen"):
+        high = calibration["chosen"].get("HIGH", HIGH)
+        moderate = calibration["chosen"].get("MODERATE", MODERATE)
+    hot = [a for a in axes if a.usable and a.percentile is not None and a.percentile >= high]
     warm = [a for a in axes if a.usable and a.percentile is not None
-            and MODERATE <= a.percentile < HIGH]
+            and moderate <= a.percentile < high]
     unusable = [a for a in axes if not a.usable]
 
     # 좁은 예측이란 회귀는 구간이 좁은 것, 분류는 예측 집합에 라벨이 하나뿐인 것이다.
@@ -112,7 +119,20 @@ def _verdict(prediction, interval, prediction_set, axes, ad_percentile, task) ->
     if unusable:
         names = ", ".join(a.name for a in unusable)
         notes.append(f"{names} 축은 이 물성의 측정 조건에서 의미를 갖지 않아 판정에서 제외했다.")
-    return {"level": level, "headline": head, "notes": notes}
+
+    # 등급에 근거를 붙인다. 경계가 임의값이 아니라 실제 미달률로 정해졌음을
+    # 화면에서 말할 수 있게 한다.
+    evidence = None
+    if calibration and calibration.get("chosen", {}).get("bands", {}).get(level):
+        band = calibration["chosen"]["bands"][level]
+        evidence = {
+            "lift": round(band["lift"], 2),
+            "share": round(band["share"], 3),
+            "n_reference": calibration["n_molecules"],
+            "text": (f"이 등급의 분자는 시험 분자 {calibration['n_molecules']}개 기준으로 "
+                     f"전체 평균의 {band['lift']:.2f}배 비율로 크게 틀렸다."),
+        }
+    return {"level": level, "headline": head, "notes": notes, "evidence": evidence}
 
 
 def score(bundle_root: Path, dataset: str, smiles: str) -> dict:
@@ -241,7 +261,7 @@ def score(bundle_root: Path, dataset: str, smiles: str) -> dict:
         parent)
 
     verdict = _verdict(parent_fp, interval, prediction_set, [a_axis] + results,
-                       ad_percentile, bundle.task_type)
+                       ad_percentile, bundle.task_type, bundle.calibration)
     return {
         "dataset": dataset, "input_smiles": smiles, "canonical_smiles": parent,
         "svg": depict(parent, width=300, height=200),

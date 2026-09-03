@@ -220,7 +220,10 @@ function render(data) {
   $("verdict-level").textContent = level;
   $("verdict-level").className = `badge ${level}`;
   $("verdict-headline").textContent = data.verdict.headline;
-  $("verdict-notes").innerHTML = data.verdict.notes.map((n) => `<li>${n}</li>`).join("");
+  const notes = data.verdict.notes.map((n) => `<li>${n}</li>`);
+  // 등급 경계는 임의값이 아니라 시험 분자에서 잰 실제 미달률로 정했다.
+  if (data.verdict.evidence) notes.push(`<li class="evidence">${data.verdict.evidence.text}</li>`);
+  $("verdict-notes").innerHTML = notes.join("");
 
   renderAxes(data.reliability_axes);
   renderShifts(data);
