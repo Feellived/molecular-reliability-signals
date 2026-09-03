@@ -125,6 +125,13 @@ button[type=submit].busy::after {
   color: var(--muted); font-size: 13.5px; max-width: 660px;
 }
 
+.static-note {
+  margin: 20px 0 0; padding: 11px 15px; border-radius: 10px;
+  background: var(--raise); border: 1px solid var(--line);
+  color: var(--muted); font-size: 12.5px; max-width: 660px;
+}
+body.static-mode .field select { font-size: 13px; }
+
 #status { margin-top: 30px; color: var(--muted); font-size: 14px; }
 #status.error { color: var(--amber); }
 
@@ -148,15 +155,15 @@ button[type=submit].busy::after {
 @keyframes shimmer { from { background-position: 130% 0; } to { background-position: -30% 0; } }
 
 /* 들어오는 움직임 */
-[data-enter] { opacity: 0; transform: translateY(10px); }
-#result.shown [data-enter] {
+[data-enter] {
+  opacity: 0; transform: translateY(10px);
   animation: rise .5s var(--ease) forwards;
   animation-delay: calc((var(--i, 1) - 1) * 70ms);
 }
 @keyframes rise { to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
-  [data-enter] { opacity: 1; transform: none; }
-  #result.shown [data-enter] { animation: none; }
+  [data-enter] { opacity: 1; transform: none; animation: none; }
+  .bar > span { animation: none; }
   .skeleton i, .skeleton b, .sk-art, .sk-axes > div { animation: none; }
 }
 
@@ -216,9 +223,10 @@ h2 { font-size: 15px; font-weight: 700; margin: 0; letter-spacing: -.012em; }
 .axis .num small { font-size: 12.5px; font-weight: 400; color: var(--muted); letter-spacing: 0; margin-left: 3px; }
 .bar { height: 6px; background: var(--line-2); border-radius: 4px; margin: 13px 0 11px; overflow: hidden; }
 .bar > span {
-  display: block; height: 100%; width: 0; background: var(--green); border-radius: 4px;
-  transition: width .85s var(--ease); transition-delay: .25s;
+  display: block; height: 100%; width: var(--w, 0); background: var(--green);
+  border-radius: 4px; animation: grow .85s var(--ease) .2s backwards;
 }
+@keyframes grow { from { width: 0; } }
 .axis.hot .bar > span { background: var(--amber); }
 .axis.hot .num { color: var(--amber); }
 .axis .cap { font-size: 12px; color: var(--muted); line-height: 1.55; }

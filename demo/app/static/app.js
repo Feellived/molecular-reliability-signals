@@ -4,14 +4,72 @@ const has = (v) => v !== null && v !== undefined;
 const pctText = (v) => has(v) ? `${Math.round(v * 100)}` : "—";
 const num = (v, d = 3) => has(v) ? Number(v).toFixed(d) : "—";
 
-async function loadDatasets() {
+// 두 가지로 돈다. 서버가 있으면 입력한 분자를 그때 채점하고, 정적 배포에서는
+// 미리 채점해둔 결과를 읽는다. data/index.json이 있는지로 판별한다.
+let MODE = "api";
+let CATALOGUE = [];
+
+const label = (task) => (task === "classification" ? "분류" : "회귀");
+
+async function boot() {
+  try {
+    const res = await fetch("data/index.json", { cache: "no-store" });
+    if (res.ok) {
+      CATALOGUE = (await res.json()).molecules;
+      MODE = "static";
+      return setupStatic();
+    }
+  } catch (error) { /* 서버 모드로 떨어진다 */ }
+  return setupApi();
+}
+
+async function setupApi() {
   const { datasets } = await (await fetch("/api/datasets")).json();
   const select = $("dataset");
   for (const item of datasets) {
     const option = document.createElement("option");
     option.value = item.dataset;
-    option.textContent = `${item.dataset} · ${item.task_type === "classification" ? "분류" : "회귀"}`;
+    option.textContent = `${item.dataset} · ${label(item.task_type)}`;
     select.appendChild(option);
+  }
+}
+
+// 정적 모드에서는 SMILES를 직접 받을 수 없다. 미리 채점해둔 분자 중에서 고른다.
+function setupStatic() {
+  document.body.classList.add("static-mode");
+  const datasets = [...new Set(CATALOGUE.map((m) => m.dataset))];
+  const select = $("dataset");
+  for (const name of datasets) {
+    const item = CATALOGUE.find((m) => m.dataset === name);
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = `${name} · ${label(item.task_type)}`;
+    select.appendChild(option);
+  }
+
+  const field = $("smiles").closest(".field");
+  field.innerHTML = `<label for="molecule">분자</label>
+    <select id="molecule"></select>`;
+  select.addEventListener("change", fillMolecules);
+  fillMolecules();
+
+  const note = document.createElement("p");
+  note.className = "static-note";
+  note.textContent = `미리 채점해둔 ${CATALOGUE.length}개 분자를 담았다. `
+    + "임의의 분자를 넣으려면 저장소를 내려받아 서버 판으로 실행한다.";
+  $("landing").appendChild(note);
+}
+
+function fillMolecules() {
+  const dataset = $("dataset").value;
+  const molecule = $("molecule");
+  molecule.innerHTML = "";
+  for (const item of CATALOGUE.filter((m) => m.dataset === dataset)) {
+    const option = document.createElement("option");
+    option.value = item.id;
+    option.textContent = (item.name ? `${item.name} · ` : "")
+      + `${item.verdict} · ${item.smiles.slice(0, 26)}${item.smiles.length > 26 ? "…" : ""}`;
+    molecule.appendChild(option);
   }
 }
 
@@ -40,16 +98,11 @@ function renderAxes(axes) {
     const width = has(card.value) ? card.value * 100 : 0;
     const body = card.usable
       ? `<div class="num">${pctText(card.value)}<small>백분위</small></div>
-         <div class="bar"><span data-width="${width}"></span></div>`
+         <div class="bar"><span style="--w:${width}%"></span></div>`
       : `<div class="num">산출 불가</div><div class="bar"></div>`;
     return `<div class="axis${hot ? " hot" : ""}${card.usable ? "" : " off"}">
       <h3>${card.title}</h3>${body}<div class="cap">${card.cap}</div></div>`;
   }).join("");
-  // 폭 0을 먼저 확정한 뒤에 목표 폭을 넣어야 전환이 걸린다. requestAnimationFrame은
-  // 탭이 그려지지 않는 상태에서 돌지 않아 막대가 0인 채로 남는다.
-  const bars = document.querySelectorAll(".bar > span[data-width]");
-  void document.body.offsetWidth;
-  bars.forEach((node) => { node.style.width = `${node.dataset.width}%`; });
 }
 
 // 거의 같아 보이는 분자가 다른 답을 받는 장면이 이 연구의 핵심이다.
@@ -177,29 +230,36 @@ function render(data) {
     node.style.setProperty("--i", node.dataset.enter);
   });
   $("result").hidden = false;
-  void $("result").offsetWidth;   // 강제 리플로. 이걸 거쳐야 애니메이션이 처음부터 돈다
-  $("result").classList.add("shown");
+}
+
+async function fetchResult() {
+  if (MODE === "static") {
+    const res = await fetch(`data/${$("molecule").value}.json`, { cache: "no-store" });
+    if (!res.ok) throw new Error("미리 채점한 결과를 읽지 못했다");
+    return res.json();
+  }
+  const res = await fetch("/api/score", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dataset: $("dataset").value, smiles: $("smiles").value.trim() }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || "채점에 실패했다");
+  return data;
 }
 
 async function submit(event) {
   event.preventDefault();
-  const smiles = $("smiles").value.trim();
-  if (!smiles) return;
+  if (MODE === "api" && !$("smiles").value.trim()) return;
   $("submit").disabled = true;
   $("submit").classList.add("busy");
   $("landing").hidden = true;
   $("result").hidden = true;
-  $("result").classList.remove("shown");
   $("skeleton").hidden = false;
-  setStatus("변형을 만들고 두 모델로 채점하는 중. 물성을 처음 부르면 몇 초 걸린다.");
+  setStatus(MODE === "static" ? "결과를 불러오는 중."
+    : "변형을 만들고 두 모델로 채점하는 중. 물성을 처음 부르면 몇 초 걸린다.");
   try {
-    const res = await fetch("/api/score", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dataset: $("dataset").value, smiles }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "채점에 실패했다");
+    const data = await fetchResult();
     setStatus("");
     $("skeleton").hidden = true;
     render(data);
@@ -216,9 +276,16 @@ async function submit(event) {
 $("query").addEventListener("submit", submit);
 document.querySelectorAll(".examples button").forEach((button) => {
   button.addEventListener("click", () => {
-    $("smiles").value = button.dataset.smiles;
     $("dataset").value = button.dataset.dataset;
+    if (MODE === "static") {
+      fillMolecules();
+      const match = CATALOGUE.find((m) => m.dataset === button.dataset.dataset
+        && m.smiles === button.dataset.smiles);
+      if (match) $("molecule").value = match.id;
+    } else {
+      $("smiles").value = button.dataset.smiles;
+    }
     $("query").requestSubmit();
   });
 });
-loadDatasets();
+boot();

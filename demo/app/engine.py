@@ -185,6 +185,8 @@ class AxisResult:
     percentile: float | None = None
     max_deviation: float | None = None
     examples: list[dict] = field(default_factory=list)
+    # 변형 전체의 예측. 제외된 축에서도 비어 있는 채로 존재해야 한다.
+    spread: list[dict] = field(default_factory=list)
 
 
 class Bundle:
