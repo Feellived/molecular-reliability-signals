@@ -73,22 +73,58 @@ function renderShifts(data) {
     parts.slice(0, 2).map((p) => card(p.label, p.svg, p.prediction, p.shift, false)).join("");
 }
 
+// 변형 예측이 어디에 흩어지는지를 점으로 그린다. 흔들림이 무엇인지가
+// 숫자보다 눈으로 먼저 들어온다. 눈금은 같은 모델끼리만 공유한다.
+function strip(origin, spread, lo, hi) {
+  if (!spread || !spread.length) return "";
+  const W = 190, H = 26, pad = 7;
+  const at = (v) => pad + ((v - lo) / (hi - lo || 1)) * (W - pad * 2);
+  const dots = spread.map((v) =>
+    `<circle cx="${at(v.prediction).toFixed(1)}" cy="${H / 2}" r="3.4"
+       fill="currentColor" opacity=".55"><title>${v.prediction}</title></circle>`).join("");
+  return `<svg class="strip" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
+    <line x1="${pad}" y1="${H / 2}" x2="${W - pad}" y2="${H / 2}" stroke="var(--line)" stroke-width="2"/>
+    ${dots}
+    <line x1="${at(origin).toFixed(1)}" y1="4" x2="${at(origin).toFixed(1)}" y2="${H - 4}"
+      stroke="var(--ink)" stroke-width="1.6"/>
+  </svg>`;
+}
+
 // 쓰지 않은 축을 왜 제외했는지 보여주는 것이 이 도구의 고유한 부분이다.
-function renderDetail(axes) {
-  const rows = axes["입력 상태 민감성"].axes.map((axis) => {
+function renderDetail(data) {
+  const axes = data.reliability_axes;
+  const state = axes["입력 상태 민감성"];
+  const representation = axes["표현 안정성"];
+
+  // 지문 모델 축끼리 눈금을 맞춘다. 언어 모델의 표현 안정성은 별도 눈금이다.
+  const bValues = state.axes.flatMap((a) => (a.spread || []).map((v) => v.prediction));
+  const bLo = Math.min(data.prediction, ...bValues), bHi = Math.max(data.prediction, ...bValues);
+  const aSpread = representation.spread || [];
+  const aOrigin = aSpread.length ? aSpread[0].prediction - aSpread[0].shift : 0;
+  const aValues = aSpread.map((v) => v.prediction);
+  const aLo = Math.min(aOrigin, ...aValues), aHi = Math.max(aOrigin, ...aValues);
+
+  const row = (name, axis, origin, lo, hi, model) => {
     if (!axis.usable) {
-      return `<tr class="off"><td>${axis.name}</td><td colspan="3">제외 — ${axis.reason}</td></tr>`;
+      return `<tr class="off"><td>${name}</td><td colspan="4">제외 — ${axis.reason}</td></tr>`;
     }
     const hot = has(axis.percentile) && axis.percentile >= HIGH;
-    return `<tr>
-      <td>${axis.name}</td>
+    const range = (axis.spread || []).length
+      ? `${num(Math.min(origin, ...axis.spread.map((v) => v.prediction)), 3)} ~ ${num(Math.max(origin, ...axis.spread.map((v) => v.prediction)), 3)}`
+      : "—";
+    return `<tr${hot ? ' class="hot"' : ""}>
+      <td>${name}<span class="model">${model}</span></td>
       <td>${axis.n_variants}종</td>
-      <td>${num(axis.dispersion, 4)}</td>
-      <td>${pctText(axis.percentile)} 백분위${hot ? " · 높음" : ""}</td>
+      <td class="strip-cell">${strip(origin, axis.spread, lo, hi)}<span class="range">${range}</span></td>
+      <td>${pctText(axis.percentile)} 백분위</td>
     </tr>`;
-  }).join("");
+  };
+
+  const rows = [row("표현 안정성", representation, aOrigin, aLo, aHi, "언어 모델")]
+    .concat(state.axes.map((a) => row(a.name, a, data.prediction, bLo, bHi, "지문 모델")))
+    .join("");
   $("detail").innerHTML = `<table>
-    <thead><tr><th>축</th><th>만든 변형</th><th>흩어짐</th><th>순위</th></tr></thead>
+    <thead><tr><th>축</th><th>만든 변형</th><th>예측 분포 (세로선이 원본)</th><th>순위</th></tr></thead>
     <tbody>${rows}</tbody></table>`;
 }
 
@@ -129,7 +165,7 @@ function render(data) {
 
   renderAxes(data.reliability_axes);
   renderShifts(data);
-  renderDetail(data.reliability_axes);
+  renderDetail(data);
   renderMeta(data);
   $("result").hidden = false;
 }
