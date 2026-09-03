@@ -79,12 +79,11 @@ def build(dataset, scores_dir: Path, axes, task: str) -> pd.DataFrame:
     stat_names = ("std", "max_dev", "shift", "rel_std", "flip")
     columns = ["row_uid"] + [f"rich__{m}__{g}__{s}"
                              for m in MODELS for g in ("A", "B") for s in stat_names]
-    if not axes:
-        frame = pd.DataFrame(columns=columns)
-        frame["row_uid"] = origin.index
-        return frame.fillna(0.0)
-
-    groups = {"A": ("A",), "B": axes}
+    # A축은 B축 허용성과 무관하다. 허용된 B축이 없더라도 A는 그대로 산출한다.
+    # 이전 판은 B가 비면 A까지 0으로 반환해 solubility_aqsoldb의 A 통계를 잃었다.
+    groups = {"A": ("A",)}
+    if axes:
+        groups["B"] = axes
     rows = []
     for row_uid, group in variants.groupby("parent_row_uid"):
         record = {"row_uid": row_uid}
@@ -98,7 +97,8 @@ def build(dataset, scores_dir: Path, axes, task: str) -> pd.DataFrame:
                 for name, value in stats.items():
                     record[f"rich__{model_key}__{group_name}__{name}"] = value
         rows.append(record)
-    return pd.DataFrame(rows)
+    # 허용된 B축이 없는 물성에서도 열 구성은 같게 유지한다. 없는 축은 0이다.
+    return pd.DataFrame(rows).reindex(columns=columns).fillna(0.0)
 
 
 def main() -> int:
