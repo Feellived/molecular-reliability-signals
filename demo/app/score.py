@@ -79,9 +79,10 @@ def _verdict(prediction, interval, axes, ad_percentile, task) -> dict:
 
 def score(bundle_root: Path, dataset: str, smiles: str) -> dict:
     bundle = Bundle(Path(bundle_root), dataset)
-    mol = Chem.MolFromSmiles(smiles)
-    if mol is None:
-        raise ValueError(f"SMILES를 해석할 수 없다: {smiles}")
+    mol = Chem.MolFromSmiles(smiles) if smiles and smiles.strip() else None
+    if mol is None or mol.GetNumAtoms() == 0:
+        # 빈 문자열은 RDKit이 원자 0개인 분자로 받아들여 통과시킨다.
+        raise ValueError(f"SMILES를 해석할 수 없다: {smiles!r}")
     parent = Chem.MolToSmiles(mol)
 
     # 이 물성에 조건이 성립하는 축만 쓴다
@@ -174,6 +175,11 @@ def score(bundle_root: Path, dataset: str, smiles: str) -> dict:
                     "relative_width": round(2 * half / spread_fp, 4) if spread_fp else None,
                     "coverage": 1 - bundle.conformal["alpha"]}
 
+    conformal_signals = _conformal_signals(
+        bundle, parent_fp, float(cb_pred[0]) if cb_pred is not None else None,
+        interval, float(fp_seeds.std(axis=0)[0]) + bundle.conformal.get("scale_floor", 0.0),
+        parent)
+
     verdict = _verdict(parent_fp, interval, [a_axis] + results, ad_percentile,
                        bundle.task_type)
     return {
@@ -191,7 +197,7 @@ def score(bundle_root: Path, dataset: str, smiles: str) -> dict:
                          "percentile": ad_percentile},
         },
         "combined_risk": _combined(bundle, top, density, fp_pred, cb_pred,
-                                   pooled_stats, a_axis, cb_pooled, interval, parent),
+                                   pooled_stats, a_axis, cb_pooled, conformal_signals),
         "verdict": verdict,
         "settings_digest": bundle.manifest["digest"],
     }
@@ -204,20 +210,13 @@ def _dump(result: AxisResult) -> dict:
             "examples": result.examples}
 
 
-def _conformal_fp_signal(bundle, prediction: float, interval, smiles: str) -> float | None:
-    """기준선의 컨포멀 신호. 회귀는 구간 폭, 분류는 예측 집합 크기다."""
-    if bundle.task_type != "classification":
-        return interval["width"] if interval else None
-    qhat = bundle.conformal.get("aps_qhat")
-    if qhat is None:
-        return None
+def _aps_set_size(qhat: float, prediction: float, tag: str, smiles: str) -> float:
+    """무작위화 APS 예측 집합의 크기. 무작위화는 SMILES 해시로 결정한다."""
     probability = float(np.clip(prediction, 0.0, 1.0))
     probs = np.array([1.0 - probability, probability])
     order = np.argsort(-probs)
     cumulative = np.cumsum(probs[order])
-    noise = int(hashlib.sha256(
-        f"{bundle.conformal['randomization_tag']}:{smiles}".encode()).hexdigest()[:16],
-        16) / 2**64
+    noise = int(hashlib.sha256(f"{tag}:{smiles}".encode()).hexdigest()[:16], 16) / 2**64
     size = 0
     for label in (0, 1):
         rank = int(np.where(order == label)[0][0])
@@ -226,17 +225,37 @@ def _conformal_fp_signal(bundle, prediction: float, interval, smiles: str) -> fl
     return float(size)
 
 
+def _conformal_signals(bundle, fp_prediction, cb_prediction, interval,
+                       fp_scale, smiles) -> dict:
+    """기준선의 컨포멀 신호 두 종. 회귀는 구간 폭, 분류는 예측 집합 크기다."""
+    tag = bundle.conformal.get("randomization_tag", "mist-fp-aps-v1")
+    cb_params = bundle.conformal.get("chemberta", {})
+    out = {"base__conformal_fp": None, "base__conformal_cb": None}
+    if bundle.task_type == "classification":
+        if bundle.conformal.get("aps_qhat") is not None:
+            out["base__conformal_fp"] = _aps_set_size(
+                bundle.conformal["aps_qhat"], fp_prediction, tag, smiles)
+        if cb_params.get("aps_qhat") is not None and cb_prediction is not None:
+            out["base__conformal_cb"] = _aps_set_size(
+                cb_params["aps_qhat"], cb_prediction, tag, smiles)
+    else:
+        out["base__conformal_fp"] = interval["width"] if interval else None
+        # 회귀의 ChemBERTa 컨포멀은 재현하지 않는다. 담당2의 척도 함수가
+        # 우리가 가진 재료와 무관해(지문 시드 표준편차와 상관 0.05) 근사하면
+        # 틀린 값을 넣게 된다. 결합 규칙도 이 신호를 뺀 판으로 적합했다.
+    return out
+
+
 def _combined(bundle, top, density, fp_pred, cb_pred, pooled, a_axis,
-              cb_pooled, interval, smiles) -> dict | None:
+              cb_pooled, conformal_signals) -> dict | None:
     """결합 규칙. 축별 값을 감추지 않으므로 참고용으로만 담는다."""
     raw = {"base__ad_knn": -top, "base__ad_density": -density,
            "base__disagreement": abs(float(fp_pred[0]) - float(cb_pred[0]))
            if cb_pred is not None else 0.0,
-           "base__conformal_fp": _conformal_fp_signal(bundle, float(fp_pred[0]),
-                                                      interval, smiles),
            "cond_B__fp_primary__std": pooled["dispersion"],
            "cond_B__cb_augmented__std": cb_pooled,
            "axis__cb_augmented__A": a_axis.dispersion or 0.0}
+    raw.update(conformal_signals)
     combiner = bundle.combiner_single
     values = []
     for column in combiner["features"]:
