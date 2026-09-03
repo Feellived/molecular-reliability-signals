@@ -4,17 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MIST · 입력 상태 민감성 기반 예측 신뢰성</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 <header>
-  <div class="wrap">
+  <div class="wrap head">
     <div class="brand">
       <span class="mark">MIST</span>
-      <span class="expand">Molecular Input-State sensitiviTy</span>
+      <span class="expand">Molecular Input&#8209;State sensitiviTy</span>
     </div>
     <p class="tagline">같은 분자를 다르게 적어 넣었을 때 모델이 답을 바꾸는가</p>
   </div>
@@ -24,38 +24,54 @@
   <form id="query" autocomplete="off">
     <div class="field">
       <label for="smiles">분자 (SMILES)</label>
-      <input id="smiles" placeholder="CC(C)(C)NCC(O)c1ccc(O)c(CO)c1" required>
+      <input id="smiles" placeholder="CC(C)(C)NCC(O)c1ccc(O)c(CO)c1" required spellcheck="false">
     </div>
     <div class="field narrow">
       <label for="dataset">물성</label>
       <select id="dataset"></select>
     </div>
-    <button type="submit" id="submit">평가</button>
+    <button type="submit" id="submit"><span>평가</span></button>
   </form>
 
   <div class="examples">
-    <span>예시</span>
+    <span class="lead">예시</span>
     <button type="button" data-smiles="CC(C)(C)NCC(O)c1ccc(O)c(CO)c1" data-dataset="bbb_martins">살부타몰 · 뇌혈관장벽</button>
     <button type="button" data-smiles="CC(C)(C)NCC(O)c1ccc(O)c(CO)c1" data-dataset="herg">살부타몰 · hERG</button>
     <button type="button" data-smiles="Cn1cnc2c1c(=O)n(C)c(=O)n2C" data-dataset="lipophilicity_astrazeneca">카페인 · logD</button>
     <button type="button" data-smiles="CC(=O)Oc1ccccc1C(=O)O" data-dataset="caco2_wang">아스피린 · 장투과도</button>
   </div>
 
+  <!-- 첫 화면. 무엇을 하는 도구인지 먼저 말한다. -->
+  <section id="landing" class="landing">
+    <ol>
+      <li><b>같은 분자를 여러 형태로 다시 적는다.</b> 등가 SMILES 표기, 호변이성질체, 양성자화 상태, 입체 표기를 바꾼 판을 만든다.</li>
+      <li><b>전부 모델에 넣고 답이 흔들리는지 본다.</b> 지문 기반 모델과 SMILES 언어 모델 두 계열을 함께 쓴다.</li>
+      <li><b>흔들리면 그 예측은 믿기 어렵다.</b> 흔들림 상위 25퍼센트 분자가 하위 25퍼센트보다 1.25배 더 틀린다.</li>
+    </ol>
+    <p class="landing-note">물성마다 쓸 수 있는 변형이 다르다. 측정 조건에 맞지 않는 축은 쓰지 않고, 왜 제외했는지 함께 보여준다.</p>
+  </section>
+
   <div id="status" hidden></div>
 
-  <section id="result" hidden>
+  <!-- 기다리는 동안 결과와 같은 골격을 보여준다. -->
+  <section id="skeleton" class="skeleton" hidden>
+    <div class="sk-answer"><div class="sk-art"></div><div class="sk-num"><i></i><b></b><i class="w60"></i></div></div>
+    <div class="sk-verdict"><i class="w30"></i><b></b><i class="w80"></i></div>
+    <div class="sk-axes"><div></div><div></div><div></div></div>
+  </section>
 
-    <div class="answer">
+  <section id="result" hidden>
+    <div class="answer card" data-enter="1">
       <figure class="structure" id="structure"></figure>
       <div class="numbers">
         <span class="cap" id="pred-label">예측값</span>
         <span class="big" id="pred-value">—</span>
         <span class="band" id="pred-band"></span>
-        <span class="smiles mono" id="canonical"></span>
+        <span class="smiles" id="canonical"></span>
       </div>
     </div>
 
-    <div class="verdict" id="verdict">
+    <div class="verdict card" id="verdict" data-enter="2">
       <div class="verdict-head">
         <span class="badge" id="verdict-level"></span>
         <span class="verdict-cap">판정</span>
@@ -64,25 +80,25 @@
       <ul class="verdict-notes" id="verdict-notes"></ul>
     </div>
 
-    <section class="block">
+    <section class="block" data-enter="3">
       <h2>신뢰성 축</h2>
       <p class="hint">세 축은 서로 다른 것을 잰다. 하나의 점수로 합치지 않는다.</p>
       <div class="axes" id="axes"></div>
     </section>
 
-    <section class="block" id="shift-block">
+    <section class="block" id="shift-block" data-enter="4">
       <h2>무엇이 예측을 흔들었나</h2>
       <p class="hint">같은 물질을 다르게 적은 것뿐인데 모델의 답이 달라진다.</p>
       <div class="shifts" id="shifts"></div>
     </section>
 
-    <section class="block">
+    <section class="block" data-enter="5">
       <h2>축별 판정</h2>
       <p class="hint">어느 축을 썼고, 쓰지 않은 축은 왜 제외했는지.</p>
       <div id="detail"></div>
     </section>
 
-    <details class="meta">
+    <details class="meta" data-enter="6">
       <summary>참고값과 설정</summary>
       <div id="meta-body"></div>
     </details>
@@ -90,7 +106,7 @@
 </main>
 
 <footer class="wrap">
-  <p>TOBIG&#39;s · TDC ADMET 22종 · 세 신뢰성 축을 분리해 표시하며 단일 점수로 합산하지 않는다</p>
+  <p>TOBIG&#39;s · TDC ADMET · 세 신뢰성 축을 분리해 표시하며 단일 점수로 합산하지 않는다</p>
 </footer>
 
 <script src="/static/app.js"></script>

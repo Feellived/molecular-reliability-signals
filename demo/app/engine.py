@@ -95,11 +95,25 @@ def depict(smiles: str, width: int = 260, height: int = 170,
     drawer = rdMolDraw2D.MolDraw2DSVG(width, height)
     options = drawer.drawOptions()
     options.clearBackground = False
-    options.bondLineWidth = 1.4
+    options.bondLineWidth = 1.5
+    options.multipleBondOffset = 0.16
+    options.padding = 0.06
     options.setHighlightColour((0.98, 0.88, 0.80, 1.0))  # 원본과 달라진 원자. 옅은 호박색
+    # 기본 원소 색은 원색에 가까워 어수선하다. 채도를 낮춰 정갈하게 만든다.
+    # 탄소는 검정으로 두었다가 아래에서 currentColor로 바꿔 어두운 모드를 따르게 한다.
+    options.updateAtomPalette({
+        6: (0, 0, 0), 7: (0.20, 0.44, 0.56), 8: (0.66, 0.33, 0.17),
+        9: (0.30, 0.50, 0.35), 15: (0.72, 0.45, 0.15), 16: (0.62, 0.50, 0.12),
+        17: (0.30, 0.50, 0.35), 35: (0.55, 0.35, 0.20), 53: (0.45, 0.30, 0.50),
+    })
     rdMolDraw2D.PrepareAndDrawMolecule(drawer, mol, highlightAtoms=highlight or None)
     drawer.FinishDrawing()
-    return drawer.GetDrawingText()
+    svg = drawer.GetDrawingText()
+    # 탄소 골격만 CSS가 물려받게 한다. 밝은 배경에서는 잉크색, 어두운 배경에서는
+    # 밝은 색으로 자동으로 바뀐다. 헤테로 원자 색은 양쪽에서 다 읽히도록 골랐다.
+    for black in ("#000000", "rgb(0,0,0)", "#000"):
+        svg = svg.replace(black, "currentColor")
+    return svg.replace("<?xml version='1.0' encoding='iso-8859-1'?>", "").strip()
 
 
 def tanimoto(query: np.ndarray, matrix: np.ndarray) -> np.ndarray:

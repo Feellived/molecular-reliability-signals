@@ -39,12 +39,17 @@ function renderAxes(axes) {
     const hot = has(card.value) && card.value >= HIGH;
     const width = has(card.value) ? card.value * 100 : 0;
     const body = card.usable
-      ? `<div class="num">${pctText(card.value)}<small> 백분위</small></div>
-         <div class="bar"><span style="width:${width}%"></span></div>`
+      ? `<div class="num">${pctText(card.value)}<small>백분위</small></div>
+         <div class="bar"><span data-width="${width}"></span></div>`
       : `<div class="num">산출 불가</div><div class="bar"></div>`;
     return `<div class="axis${hot ? " hot" : ""}${card.usable ? "" : " off"}">
       <h3>${card.title}</h3>${body}<div class="cap">${card.cap}</div></div>`;
   }).join("");
+  // 폭 0을 먼저 확정한 뒤에 목표 폭을 넣어야 전환이 걸린다. requestAnimationFrame은
+  // 탭이 그려지지 않는 상태에서 돌지 않아 막대가 0인 채로 남는다.
+  const bars = document.querySelectorAll(".bar > span[data-width]");
+  void document.body.offsetWidth;
+  bars.forEach((node) => { node.style.width = `${node.dataset.width}%`; });
 }
 
 // 거의 같아 보이는 분자가 다른 답을 받는 장면이 이 연구의 핵심이다.
@@ -79,9 +84,10 @@ function strip(origin, spread, lo, hi) {
   if (!spread || !spread.length) return "";
   const W = 190, H = 26, pad = 7;
   const at = (v) => pad + ((v - lo) / (hi - lo || 1)) * (W - pad * 2);
-  const dots = spread.map((v) =>
+  const dots = spread.map((v, i) =>
     `<circle cx="${at(v.prediction).toFixed(1)}" cy="${H / 2}" r="3.4"
-       fill="currentColor" opacity=".55"><title>${v.prediction}</title></circle>`).join("");
+       fill="currentColor" style="animation-delay:${420 + i * 45}ms"
+       ><title>${v.prediction}</title></circle>`).join("");
   return `<svg class="strip" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
     <line x1="${pad}" y1="${H / 2}" x2="${W - pad}" y2="${H / 2}" stroke="var(--line)" stroke-width="2"/>
     ${dots}
@@ -167,7 +173,12 @@ function render(data) {
   renderShifts(data);
   renderDetail(data);
   renderMeta(data);
+  document.querySelectorAll("#result [data-enter]").forEach((node) => {
+    node.style.setProperty("--i", node.dataset.enter);
+  });
   $("result").hidden = false;
+  void $("result").offsetWidth;   // 강제 리플로. 이걸 거쳐야 애니메이션이 처음부터 돈다
+  $("result").classList.add("shown");
 }
 
 async function submit(event) {
@@ -175,7 +186,11 @@ async function submit(event) {
   const smiles = $("smiles").value.trim();
   if (!smiles) return;
   $("submit").disabled = true;
+  $("submit").classList.add("busy");
+  $("landing").hidden = true;
   $("result").hidden = true;
+  $("result").classList.remove("shown");
+  $("skeleton").hidden = false;
   setStatus("변형을 만들고 두 모델로 채점하는 중. 물성을 처음 부르면 몇 초 걸린다.");
   try {
     const res = await fetch("/api/score", {
@@ -186,11 +201,15 @@ async function submit(event) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "채점에 실패했다");
     setStatus("");
+    $("skeleton").hidden = true;
     render(data);
   } catch (error) {
+    $("skeleton").hidden = true;
+    if (!document.querySelector("#result:not([hidden])")) $("landing").hidden = false;
     setStatus(error.message, true);
   } finally {
     $("submit").disabled = false;
+    $("submit").classList.remove("busy");
   }
 }
 

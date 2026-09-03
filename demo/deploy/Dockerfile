@@ -17,7 +17,9 @@ RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/wh
 COPY app ./app
 COPY bundle ./bundle
 
-# Spaces는 7860 포트를 쓴다.
+# 호스트마다 포트 규약이 다르다. Spaces는 7860, Cloud Run은 PORT 환경변수로
+# 넘긴다. 환경변수가 있으면 그걸 쓰고 없으면 7860으로 떨어진다.
+ENV PORT=7860
 EXPOSE 7860
 WORKDIR /app/app
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "7860"]
+CMD ["sh", "-c", "uvicorn api:app --host 0.0.0.0 --port ${PORT:-7860}"]
