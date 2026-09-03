@@ -14,6 +14,11 @@ import yaml
 from rdkit import DataStructs
 from rdkit.DataStructs.cDataStructs import ExplicitBitVect
 
+from recompute_regression_conformal_ensemble import (
+    build_ensemble_conformal,
+    load_multiseed_predictions,
+)
+
 
 def infer_task(labels: pd.Series) -> str:
     values = set(pd.to_numeric(labels, errors="coerce").dropna().unique())
@@ -39,7 +44,14 @@ def randomized_aps_score(p1: np.ndarray, labels: np.ndarray, uniform: np.ndarray
     return before + (1 - uniform) * p_true
 
 
-def build_conformal(source: pd.DataFrame, regular: pd.DataFrame, augmented: pd.DataFrame, alpha: float):
+def build_conformal(
+    source: pd.DataFrame,
+    regular: pd.DataFrame,
+    augmented: pd.DataFrame,
+    alpha: float,
+    multiseed: pd.DataFrame | None = None,
+    seeds: tuple[int, ...] = (42, 43, 44),
+):
     task = infer_task(source["Y_final"])
     y = pd.to_numeric(source["Y_final"]).to_numpy()
     calib = source["split"].eq("calib").to_numpy()
@@ -48,19 +60,9 @@ def build_conformal(source: pd.DataFrame, regular: pd.DataFrame, augmented: pd.D
     result = pd.DataFrame({"row_uid": source["row_uid"]})
 
     if task == "regression":
-        spread = np.abs(pred_augmented - pred_regular)
-        floor = max(float(np.quantile(spread[calib], 0.25)), float(np.std(y[calib])) * 1e-3, 1e-8)
-        scale = spread + floor
-        qhat = conformal_quantile(np.abs(y[calib] - pred_augmented[calib]) / scale[calib], alpha)
-        half_width = qhat * scale
-        result["conformal_lower"] = pred_augmented - half_width
-        result["conformal_upper"] = pred_augmented + half_width
-        result["conformal_width"] = 2 * half_width
-        result["conformal_scale"] = scale
-        result["conformal_qhat"] = qhat
-        result["conformal_true_score"] = np.abs(y - pred_augmented) / scale
-        metadata = {"task": task, "method": "normalized_split_conformal", "alpha": alpha, "qhat": qhat}
-        return result, metadata
+        if multiseed is None:
+            raise ValueError("회귀 컨포멀 계산에는 다중 seed ChemBERTa 예측이 필요합니다.")
+        return build_ensemble_conformal(source, multiseed, alpha, seeds)
 
     p1 = np.clip(pred_augmented, 1e-7, 1 - 1e-7)
     labels = y.astype(int)
@@ -120,7 +122,15 @@ def build_ad(source: pd.DataFrame, artifact_path: Path, k_neighbors: int, thresh
     )
 
 
-def run_dataset(dataset: str, processed_dir: Path, output_dir: Path, artifact_dir: Path, config: dict) -> None:
+def run_dataset(
+    dataset: str,
+    processed_dir: Path,
+    output_dir: Path,
+    artifact_dir: Path,
+    multiseed_dir: Path,
+    config: dict,
+    seeds: tuple[int, ...],
+) -> None:
     source = pd.read_csv(processed_dir / dataset / "splits.csv")
     dataset_output = output_dir / dataset
     fingerprint = pd.read_csv(dataset_output / "fingerprint_predictions.csv")
@@ -129,8 +139,16 @@ def run_dataset(dataset: str, processed_dir: Path, output_dir: Path, artifact_di
     frames = (fingerprint, regular, augmented)
     assert all(source["row_uid"].astype(str).equals(frame["row_uid"].astype(str)) for frame in frames)
 
+    multiseed = None
+    if infer_task(source["Y_final"]) == "regression":
+        multiseed = load_multiseed_predictions(multiseed_dir, dataset, seeds)
     conformal, metadata = build_conformal(
-        source, regular, augmented, float(config["conformal_alpha"])
+        source,
+        regular,
+        augmented,
+        float(config["conformal_alpha"]),
+        multiseed,
+        seeds,
     )
     conformal.to_csv(dataset_output / "conformal_predictions.csv", index=False)
     (dataset_output / "conformal_metadata.json").write_text(
@@ -199,13 +217,23 @@ def main() -> None:
     parser.add_argument("--processed-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--artifact-dir", type=Path, required=True)
+    parser.add_argument("--multiseed-dir", type=Path, required=True)
     parser.add_argument("--config", type=Path, default=Path("configs/role2.yaml"))
     parser.add_argument("--dataset", action="append")
+    parser.add_argument("--seeds", type=int, nargs="+", default=[42, 43, 44])
     args = parser.parse_args()
     config = yaml.safe_load(args.config.read_text(encoding="utf-8"))
     datasets = args.dataset or sorted(path.parent.name for path in args.processed_dir.glob("*/splits.csv"))
     for dataset in datasets:
-        run_dataset(dataset, args.processed_dir, args.output_dir, args.artifact_dir, config)
+        run_dataset(
+            dataset,
+            args.processed_dir,
+            args.output_dir,
+            args.artifact_dir,
+            args.multiseed_dir,
+            config,
+            tuple(args.seeds),
+        )
 
 
 if __name__ == "__main__":
