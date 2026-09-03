@@ -157,6 +157,11 @@ def score(bundle_root: Path, dataset: str, smiles: str) -> dict:
         a_axis.dispersion = stats["dispersion"]
         a_axis.max_deviation = stats["max_deviation"]
         a_axis.percentile = bundle.percentile("axis__cb_augmented__A", stats["dispersion"])
+        # 등가 표기는 분자가 같아 구조를 그려도 전부 똑같다. 문자열과 예측만 낸다.
+        a_axis.spread = [{"smiles": s, "prediction": round(float(v), 4),
+                          "shift": round(float(v) - float(cb_pred[0]), 4)}
+                         for s, v in zip(representation, cb_pred[1:offset])]
+        a_axis.examples = a_axis.spread[:2]
 
     # 입력 상태 민감성 B는 축별로 산출하고 조건이 성립하는 축을 합쳐 통합한다
     cursor, pooled = offset, []
@@ -171,11 +176,16 @@ def score(bundle_root: Path, dataset: str, smiles: str) -> dict:
         result.max_deviation = stats["max_deviation"]
         # 변형 분자도 그려 원본과 나란히 놓는다. 거의 같아 보이는데 예측이
         # 달라지는 것이 이 연구의 핵심이라 그림으로 보여야 전달된다.
+        result.spread = [{"smiles": s, "prediction": round(float(v), 4),
+                          "shift": round(float(v) - parent_fp, 4)}
+                         for s, v in zip(group, chunk)]
+        # 이탈이 큰 것부터 두 개만 구조를 그린다. 나머지는 분포로 보인다.
+        ranked = sorted(zip(group, chunk), key=lambda pair: -abs(pair[1] - parent_fp))
         result.examples = [
             {"smiles": s, "prediction": round(float(v), 4),
              "shift": round(float(v) - parent_fp, 4),
              "svg": depict(s, reference=parent)}
-            for s, v in zip(group[:2], chunk[:2])]
+            for s, v in ranked[:2]]
         pooled.extend(chunk.tolist())
     pooled_stats = _axis_stats(parent_fp, np.array(pooled), spread_fp)
     cb_pooled = None
@@ -246,7 +256,7 @@ def _dump(result: AxisResult) -> dict:
     return {"name": result.name, "usable": result.usable, "reason": result.reason,
             "n_variants": result.n_variants, "dispersion": result.dispersion,
             "max_deviation": result.max_deviation, "percentile": result.percentile,
-            "examples": result.examples}
+            "examples": result.examples, "spread": result.spread}
 
 
 def _aps_set(qhat: float, prediction: float, tag: str, smiles: str) -> list[int]:
