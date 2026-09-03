@@ -133,9 +133,14 @@ def to_percentile(values, sorted_reference) -> np.ndarray:
                            side="right") / len(sorted_reference)
 
 
-def build_combiner(frame: pd.DataFrame, reference: dict) -> dict:
+# 분자 하나로는 재현할 수 없는 특징. 담당2의 ChemBERTa 컨포멀 보정값이
+# 산출물에 없어 새 분자의 예측 집합 크기를 만들 수 없다.
+NOT_REPRODUCIBLE = ("base__conformal_cb",)
+
+
+def build_combiner(frame: pd.DataFrame, reference: dict, columns=None) -> dict:
     """메타에서 능선 회귀를 적합해 계수를 남긴다. 백분위는 참조 분포로 매긴다."""
-    columns = list(reference)
+    columns = list(reference) if columns is None else [c for c in columns if c in reference]
     matrix = np.column_stack([
         to_percentile(frame[c].to_numpy(float), reference[c]["sorted_values"])
         for c in columns])
@@ -164,15 +169,24 @@ def build_combiner(frame: pd.DataFrame, reference: dict) -> dict:
     }
 
 
-def build_conformal(frame: pd.DataFrame, role2_dir: Path, dataset: str) -> dict:
-    """예측 구간을 그리는 데 필요한 값. 회귀만 구간을 갖는다."""
+def build_conformal(frame: pd.DataFrame, role2_dir: Path, dataset: str,
+                    scores_dir: Path) -> dict:
+    """예측 구간을 그리는 데 필요한 값. 분류는 구간 대신 예측 집합을 낸다."""
     task = frame["task_type"].iloc[0]
+    aps = scores_dir / "fp_conformal" / dataset / "fp_conformal_metadata.json"
     role2 = pd.read_csv(role2_dir / dataset / "role2_signals.csv",
                         usecols=["row_uid", "std_fp_primary", "split", "Y_final",
                                  "pred_fp_primary"])
     calib = role2["split"].eq("calib").to_numpy()
-    if task == "classification" or not calib.any():
-        return {"task_type": task, "note": "분류는 예측 집합으로 보고하며 구간을 산출하지 않는다"}
+    if task == "classification":
+        record = {"task_type": task, "alpha": ALPHA,
+                  "note": "분류는 구간 대신 무작위화 APS 예측 집합을 낸다"}
+        if aps.exists():
+            record["aps_qhat"] = json.loads(aps.read_text(encoding="utf-8"))["qhat"]
+            record["randomization_tag"] = "mist-fp-aps-v1"
+        return record
+    if not calib.any():
+        return {"task_type": task, "note": "보정 분할이 없어 구간을 산출하지 않는다"}
 
     raw = role2["std_fp_primary"].to_numpy(float)
     floor = float(np.quantile(raw[calib], 0.25))
@@ -295,9 +309,15 @@ def main() -> int:
         combiner = build_combiner(frame, reference)
         (target / "combiner.json").write_text(
             json.dumps(combiner, ensure_ascii=False, indent=2), encoding="utf-8")
+        single = build_combiner(frame, reference,
+                                [c for c in reference if c not in NOT_REPRODUCIBLE])
+        single["note"] = ("분자 하나로 재현 가능한 특징만 쓴다. 담당2의 ChemBERTa "
+                          "컨포멀 보정값이 산출물에 없어 그 신호를 뺐다.")
+        (target / "combiner_single.json").write_text(
+            json.dumps(single, ensure_ascii=False, indent=2), encoding="utf-8")
         (target / "conformal.json").write_text(
-            json.dumps(build_conformal(frame, role2_dir, dataset), ensure_ascii=False,
-                       indent=2), encoding="utf-8")
+            json.dumps(build_conformal(frame, role2_dir, dataset, Path(args.scores_dir)),
+                       ensure_ascii=False, indent=2), encoding="utf-8")
         (target / "axes.json").write_text(
             json.dumps(build_axes(dataset, allowance, decision), ensure_ascii=False,
                        indent=2), encoding="utf-8")
@@ -321,6 +341,8 @@ def main() -> int:
                         "n_signals": len(reference),
                         "test_auprc": combiner["test_auprc"],
                         "test_normalized_aurc": combiner["test_normalized_aurc"],
+                        "single_auprc": single["test_auprc"],
+                        "single_normalized_aurc": single["test_normalized_aurc"],
                         "n_train_neighbors": neighbors["n_train"],
                         "refit_correlation": refit["correlation"] if refit else None,
                         "models_cached": bool(model_info)})
@@ -350,6 +372,8 @@ def main() -> int:
     print(f"\n설정 지문 {fingerprint['digest']}   물성 {len(table)}종")
     print(f"결합 점수 시험 성적  AUPRC {table['test_auprc'].mean():.4f}   "
           f"정규화 AURC {table['test_normalized_aurc'].mean():.4f}")
+    print(f"분자 하나용 규칙      AUPRC {table['single_auprc'].mean():.4f}   "
+          f"정규화 AURC {table['single_normalized_aurc'].mean():.4f}")
     corr = table["refit_correlation"].dropna()
     if len(corr):
         print(f"재적합 재현도  상관 중앙값 {corr.median():.4f}  최솟값 {corr.min():.4f}")
