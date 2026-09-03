@@ -49,7 +49,8 @@ def datasets() -> dict:
             "excluded_axes": [k for k, v in axes.items()
                               if not k.startswith("_") and not v["사용"]],
         })
-    return {"datasets": out, "settings_digest": manifest["digest"]}
+    return {"datasets": out, "settings_digest": manifest["digest"],
+            "created_at": manifest.get("created_at", "")}
 
 
 @app.post("/api/score")

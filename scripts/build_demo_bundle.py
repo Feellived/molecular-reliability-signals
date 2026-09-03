@@ -352,7 +352,14 @@ def main() -> int:
             (target / "models.json").write_text(
                 json.dumps(model_info, ensure_ascii=False, indent=2), encoding="utf-8")
 
+        # 설정 지문은 변형 생성 설정만 덮는다. 모델이나 결합 규칙이 바뀌면
+        # 지문이 그대로여도 결과가 달라지므로 물성마다 재료의 요약을 남긴다.
+        signature = hashlib.sha256(
+            f"{combiner['coefficients']}{combiner['intercept']}"
+            f"{sorted(reference)}{model_info['primary_model'] if model_info else ''}"
+            .encode("utf-8")).hexdigest()[:12]
         records.append({"dataset": dataset, "task_type": frame["task_type"].iloc[0],
+                        "signature": signature,
                         "n_reference": int(frame["split"].eq(REFERENCE_SPLIT).sum()),
                         "n_signals": len(reference),
                         "test_auprc": combiner["test_auprc"],

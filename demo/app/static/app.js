@@ -8,6 +8,7 @@ const num = (v, d = 3) => has(v) ? Number(v).toFixed(d) : "—";
 // 미리 채점해둔 결과를 읽는다. data/index.json이 있는지로 판별한다.
 let MODE = "api";
 let CATALOGUE = [];
+let BUILT_AT = "";
 
 const label = (task) => (task === "classification" ? "분류" : "회귀");
 
@@ -24,7 +25,9 @@ async function boot() {
 }
 
 async function setupApi() {
-  const { datasets } = await (await fetch("/api/datasets")).json();
+  const info = await (await fetch("/api/datasets")).json();
+  const { datasets } = info;
+  BUILT_AT = (info.created_at || "").slice(0, 10);
   const select = $("dataset");
   for (const item of datasets) {
     const option = document.createElement("option");
@@ -193,6 +196,7 @@ function renderMeta(data) {
     <tr><th>결합 위험 점수</th><td>${risk ? `${num(risk.score)} — ${risk.note}` : "산출하지 않음"}</td></tr>
     <tr><th>사용 신호</th><td class="mono">${risk ? risk.features.join(", ") : "—"}</td></tr>
     <tr><th>설정 지문</th><td class="mono">${data.settings_digest}</td></tr>
+    <tr><th>산출물 생성</th><td>${BUILT_AT || "—"}</td></tr>
   </tbody></table>`;
 }
 
