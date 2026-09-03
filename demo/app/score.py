@@ -32,6 +32,24 @@ from engine import (
 HIGH, MODERATE = 0.85, 0.65   # 백분위 경계. 상위 15퍼센트를 높음으로 본다
 
 
+def _has_final_consonant(word: str) -> bool:
+    """한글 음절의 받침 유무. 와/과, 은/는 같은 조사 선택에 쓴다."""
+    last = word.strip()[-1:]
+    if not last or not ("가" <= last <= "힣"):
+        return True
+    return (ord(last) - 0xAC00) % 28 != 0
+
+
+def _join_korean(names: list[str]) -> str:
+    """이름을 와/과로 잇는다. 마지막 항목 뒤에는 조사를 붙이지 않는다."""
+    if not names:
+        return ""
+    joined = names[0]
+    for name in names[1:]:
+        joined += ("과 " if _has_final_consonant(joined) else "와 ") + name
+    return joined
+
+
 def _axis_stats(parent: float, values: np.ndarray, spread: float) -> dict:
     """축 하나의 흩어짐. 원본을 표본에 포함한다. 변형이 하나뿐인 축 때문이다."""
     if len(values) == 0:
@@ -43,18 +61,24 @@ def _axis_stats(parent: float, values: np.ndarray, spread: float) -> dict:
             "relative": dispersion / spread if spread > 1e-9 else 0.0}
 
 
-def _verdict(prediction, interval, axes, ad_percentile, task) -> dict:
+def _verdict(prediction, interval, prediction_set, axes, ad_percentile, task) -> dict:
     """신호를 근거로 판정 문장을 만든다. 계획서 7.3절의 예시 문장 형식을 따른다."""
     hot = [a for a in axes if a.usable and a.percentile is not None and a.percentile >= HIGH]
     warm = [a for a in axes if a.usable and a.percentile is not None
             and MODERATE <= a.percentile < HIGH]
     unusable = [a for a in axes if not a.usable]
 
-    narrow = interval is not None and interval.get("relative_width") is not None \
-        and interval["relative_width"] < 0.5
+    # 좁은 예측이란 회귀는 구간이 좁은 것, 분류는 예측 집합에 라벨이 하나뿐인 것이다.
+    if task == "classification":
+        narrow = prediction_set is not None and prediction_set["size"] == 1
+        narrow_phrase = "예측 집합이 라벨 하나로 좁게 산출되었으나"
+    else:
+        narrow = (interval is not None and interval.get("relative_width") is not None
+                  and interval["relative_width"] < 0.5)
+        narrow_phrase = "예측 구간은 좁게 산출되었으나"
 
     if hot:
-        names = "과 ".join(a.name for a in hot)
+        names = _join_korean([a.name for a in hot])
         head = (f"{names}에 따라 예측값이 크게 변동한다. "
                 "입력 표기를 확인하기 전에는 이 예측을 사용하지 않는 것이 바람직하다.")
         level = "주의"
@@ -68,7 +92,7 @@ def _verdict(prediction, interval, axes, ad_percentile, task) -> dict:
 
     notes = []
     if narrow and hot:
-        notes.append("예측 구간은 좁게 산출되었으나 위 변동이 그 구간에 반영되어 있지 않다.")
+        notes.append(f"{narrow_phrase} 위 변동이 거기에 반영되어 있지 않다.")
     if ad_percentile is not None and ad_percentile >= HIGH:
         notes.append("학습 데이터에서 먼 골격이므로 예측 자체의 신뢰도도 낮다.")
     if unusable:
@@ -175,18 +199,27 @@ def score(bundle_root: Path, dataset: str, smiles: str) -> dict:
                     "relative_width": round(2 * half / spread_fp, 4) if spread_fp else None,
                     "coverage": 1 - bundle.conformal["alpha"]}
 
+    prediction_set = None
+    if bundle.task_type == "classification" and bundle.conformal.get("aps_qhat") is not None:
+        labels = _aps_set(bundle.conformal["aps_qhat"], parent_fp,
+                          bundle.conformal.get("randomization_tag", "mist-fp-aps-v1"), parent)
+        prediction_set = {"labels": labels, "size": len(labels),
+                          "coverage": 1 - bundle.conformal["alpha"],
+                          "note": "라벨이 둘이면 모델이 어느 쪽인지 가르지 못한 것이다"}
+
     conformal_signals = _conformal_signals(
         bundle, parent_fp, float(cb_pred[0]) if cb_pred is not None else None,
         interval, float(fp_seeds.std(axis=0)[0]) + bundle.conformal.get("scale_floor", 0.0),
         parent)
 
-    verdict = _verdict(parent_fp, interval, [a_axis] + results, ad_percentile,
-                       bundle.task_type)
+    verdict = _verdict(parent_fp, interval, prediction_set, [a_axis] + results,
+                       ad_percentile, bundle.task_type)
     return {
         "dataset": dataset, "input_smiles": smiles, "canonical_smiles": parent,
         "task_type": bundle.task_type,
         "prediction": round(parent_fp, 4),
         "interval": interval,
+        "prediction_set": prediction_set,
         "reliability_axes": {
             "표현 안정성": _dump(a_axis),
             "입력 상태 민감성": {"percentile": b_percentile,
@@ -210,19 +243,19 @@ def _dump(result: AxisResult) -> dict:
             "examples": result.examples}
 
 
-def _aps_set_size(qhat: float, prediction: float, tag: str, smiles: str) -> float:
-    """무작위화 APS 예측 집합의 크기. 무작위화는 SMILES 해시로 결정한다."""
+def _aps_set(qhat: float, prediction: float, tag: str, smiles: str) -> list[int]:
+    """무작위화 APS 예측 집합. 무작위화는 SMILES 해시로 결정한다."""
     probability = float(np.clip(prediction, 0.0, 1.0))
     probs = np.array([1.0 - probability, probability])
     order = np.argsort(-probs)
     cumulative = np.cumsum(probs[order])
     noise = int(hashlib.sha256(f"{tag}:{smiles}".encode()).hexdigest()[:16], 16) / 2**64
-    size = 0
-    for label in (0, 1):
-        rank = int(np.where(order == label)[0][0])
-        if cumulative[rank] - noise * probs[label] <= qhat:
-            size += 1
-    return float(size)
+    return [label for label in (0, 1)
+            if cumulative[int(np.where(order == label)[0][0])] - noise * probs[label] <= qhat]
+
+
+def _aps_set_size(qhat: float, prediction: float, tag: str, smiles: str) -> float:
+    return float(len(_aps_set(qhat, prediction, tag, smiles)))
 
 
 def _conformal_signals(bundle, fp_prediction, cb_prediction, interval,
