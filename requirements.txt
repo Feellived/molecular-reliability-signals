@@ -1,0 +1,28 @@
+# 분석 파이프라인 환경. 데모는 demo/deploy/requirements.txt를 따로 쓴다.
+#
+# 설치
+#   conda create -n mist python=3.11 -y && conda activate mist
+#   pip install -r requirements.txt
+#
+# 판을 고정하는 이유는 지문 모델이 joblib으로 저장되어 있어서다. scikit-learn과
+# xgboost 판이 다르면 저장된 모델을 읽지 못하거나 다른 결과를 낸다. numpy와
+# pandas는 그 피클 안에 배열 형식이 들어가므로 함께 묶는다.
+numpy==2.4.6
+pandas==3.0.5
+scipy==1.17.1
+scikit-learn==1.9.0
+xgboost==3.2.0
+joblib==1.5.3
+matplotlib==3.11.1
+
+# 화학정보
+rdkit==2025.9.6
+dimorphite-dl==2.0.2      # 양성자화 상태 열거
+PyTDC==1.1.1              # 원자료 내려받기. 이미 받아둔 분할을 쓰면 필요 없다
+
+# SMILES 언어 모델. conda 환경에서 pip torch와 섞으면 OpenMP 런타임이 충돌해
+# 죽는 경우가 있다. 그때는 별도 가상환경을 만들어 3단계 채점만 거기서 돌린다.
+#   python -m venv ~/.venvs/mist-torch
+#   ~/.venvs/mist-torch/bin/pip install torch==2.13.0 transformers==5.16.1
+torch==2.13.0
+transformers==5.16.1
