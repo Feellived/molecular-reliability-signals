@@ -1,5 +1,7 @@
 ## Cloud Run 배포 안내
 
+현재 배포 주소는 https://mist-700016601256.asia-northeast3.run.app 이며 프로젝트는 mist-demo-507509다.
+
 Google Cloud Run은 Dockerfile을 그대로 받아 원격에서 빌드하고 실행한다. 로컬에 Docker를 설치할 필요가 없다.
 
 무료 한도는 월 요청 200만 건, vCPU 18만 초, 메모리 36만 GB초다. 최소 인스턴스를 0으로 두면 접속이 없을 때 완전히 잠들어 과금이 발생하지 않는다. 데모 수준 트래픽에서는 한도 안에 들어온다. 다만 계정 생성 시 카드 등록은 필요하다.
@@ -74,4 +76,16 @@ gcloud run services delete mist --region asia-northeast3
 
 ### 참고
 
-포트는 Cloud Run이 `PORT` 환경변수로 넘기며 Dockerfile이 그 값을 따른다. HuggingFace Spaces는 7860을 쓰는데, 환경변수가 없으면 7860으로 떨어지므로 같은 이미지가 양쪽에서 돈다.
+포트는 Cloud Run이 `PORT` 환경변수로 넘기며 Dockerfile이 그 값을 따른다. 환경변수가 없으면 7860으로 떨어지므로 다른 호스트에서도 같은 이미지가 돈다.
+
+빌드가 실패하면 로그를 이렇게 본다. 컨테이너가 뜨지 못한 경우는 빌드 로그가 아니라 리비전 로그를 봐야 하며, 역순으로 나오므로 `--order=asc`를 붙여야 실제 예외가 보인다.
+
+```
+gcloud builds log $(gcloud builds list --region asia-northeast3 --limit 1 --format="value(id)") \
+  --region asia-northeast3
+
+gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="mist"' \
+  --limit 100 --order=asc --format="value(textPayload)" | tail -20
+```
+
+의존성을 올릴 때는 두 가지를 먼저 확인한다. 파이썬 판이 PyPI에 리눅스 x86_64 휠로 실재하는지, 그리고 새로 추가한 패키지가 요구하는 시스템 라이브러리가 Dockerfile의 apt 목록에 있는지다. 둘 다 conda 환경에서는 드러나지 않는다.

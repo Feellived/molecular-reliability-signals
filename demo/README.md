@@ -54,7 +54,15 @@ python app/validate.py
 
 ### 배포
 
-HuggingFace Spaces(Docker)를 쓴다. 전체 산출물은 585MB이고 그중 ld50_zhu의 모델 캐시 하나가 247MB이므로, 이야기가 되는 물성 넷만 실어 81MB로 줄인다.
+Google Cloud Run에 올라가 있다.
+
+  https://mist-700016601256.asia-northeast3.run.app
+
+절차는 deploy/CLOUD_RUN.md에 있다. 최소 인스턴스가 0이라 접속이 없으면 잠들고 과금이 발생하지 않는다. 대신 한동안 쓰지 않으면 첫 접속이 30초에서 1분 걸리므로, 시연 전에 한 번 열어 깨워두는 편이 좋다.
+
+HuggingFace Spaces는 쓰지 않는다. Docker와 Gradio SDK가 유료 요금제를 요구하도록 바뀌었고, 무료로 남은 정적 Space는 서버가 없어 임의 분자를 채점할 수 없다. 정적 배포 경로도 함께 만들어두었으므로(deploy/precompute.py, deploy/build_static.py) 필요하면 미리 채점한 결과만으로 올릴 수 있다.
+
+배포 묶음은 다음으로 만든다. 전체 산출물은 585MB이고 그중 ld50_zhu의 모델 캐시 하나가 247MB이므로, 이야기가 되는 물성 넷만 실어 81MB로 줄인다.
 
 ```
 python deploy/build_space.py \
@@ -72,8 +80,6 @@ python deploy/build_space.py \
 `requirements.txt`의 scikit-learn 판을 고정해두었다. 지문 모델이 joblib으로 저장되어 있어 판이 다르면 역직렬화가 조용히 실패하거나 다른 결과를 낸다.
 
 ### 남은 일
-
-Docker 이미지 빌드는 아직 검증하지 않았다. 배포 폴더를 저장소 밖에서 uvicorn으로 띄워 네 물성 모두 정상 동작하는 것까지는 확인했다.
 
 회귀 물성의 ChemBERTa 컨포멀은 담당2의 척도 함수를 재구성할 수 없어 결합 규칙에서 뺐다. 정의를 확인하면 채울 수 있다.
 
