@@ -35,14 +35,23 @@ from engine import (
 HIGH, MODERATE = 0.80, 0.30
 
 
+# 담당2가 ChemBERTa를 시드 세 개로 다시 학습하면서 폴더 구조가 바뀌었다.
+#   이전  Jiye/checkpoints/chemberta/{물성}/{regular,augmented}
+#   지금  Jiye/checkpoints/chemberta_seed_{42,43,44}/checkpoints/{물성}/{...}
+# 점추정은 담당2의 pred_chemberta_augmented와 맞추기 위해 시드 42를 쓴다.
+CHEMBERTA_SEED = 42
+
+
 def chemberta_root() -> Path | None:
     """언어 모델 체크포인트 위치. 배포 환경에서는 저장소 구조를 쓸 수 없다."""
     override = os.environ.get("MIST_CHEMBERTA")
     if override:
         path = Path(override)
         return path if path.exists() else None
+    jiye = Path(__file__).resolve().parents[3] / "Jiye" / "checkpoints"
     for candidate in (Path(__file__).resolve().parent / "checkpoints",
-                      Path(__file__).resolve().parents[3] / "Jiye" / "checkpoints" / "chemberta"):
+                      jiye / f"chemberta_seed_{CHEMBERTA_SEED}" / "checkpoints",
+                      jiye / "chemberta"):
         if candidate.exists():
             return candidate
     return None
