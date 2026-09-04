@@ -44,7 +44,7 @@ echo
 echo "[3/4] 배포 묶음"
 "$PY" "$HERE/demo/deploy/build_space.py" \
   --bundle "$BUNDLE" \
-  --chemberta "$HERE/../Jiye/checkpoints/chemberta" \
+  --chemberta "${MIST_CHEMBERTA_SRC:-$HERE/../Jiye/checkpoints/chemberta_seed_42/checkpoints}" \
   --out "$STAGE" | tail -6
 
 echo
