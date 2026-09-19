@@ -183,7 +183,7 @@ def main() -> int:
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    allowance = pd.read_csv(reports / "06_transformation_allowance_revised.csv").set_index("dataset")
+    allowance = pd.read_csv(reports / "06_transformation_allowance_final.csv", encoding="utf-8-sig").set_index("dataset")
     decision = pd.read_csv(reports / "07_axis_decision.csv").set_index("dataset")
     datasets = sorted(
         p.name for p in (scores / "train_oof_chemberta").iterdir()

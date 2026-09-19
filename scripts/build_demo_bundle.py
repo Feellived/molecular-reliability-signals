@@ -314,7 +314,7 @@ def main() -> int:
     role2_dir, processed_dir = Path(args.role2_dir), Path(args.processed_dir)
     out_dir = Path(args.out_dir); out_dir.mkdir(parents=True, exist_ok=True)
     reports = Path(args.reports_dir)
-    allowance = pd.read_csv(reports / "06_transformation_allowance_revised.csv").set_index("dataset")
+    allowance = pd.read_csv(reports / "06_transformation_allowance_final.csv", encoding="utf-8-sig").set_index("dataset")
     decision = pd.read_csv(reports / "07_axis_decision.csv").set_index("dataset")
 
     datasets = args.datasets or sorted(

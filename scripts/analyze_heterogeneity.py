@@ -11,7 +11,7 @@ Benjamini-Hochberg 절차로 통제한다.
 
 검토하는 조절 변수
 
-  변형 허용성    담당1의 06_transformation_allowance_revised.csv에서 온다.
+  변형 허용성    담당1의 06_transformation_allowance_final.csv에서 온다.
                  해당 물성의 측정 조건이 pH를 보존하는지에 따라 허용과 주의로
                  나뉜다. 화학적으로 변형이 유의미한 물성에서만 신호가 작동한다면
                  이 변수가 효과를 설명해야 한다. 가장 해석 가능한 후보다.
@@ -54,7 +54,7 @@ def load_effects(scores_dir: Path) -> pd.DataFrame:
 def add_moderators(
     frame: pd.DataFrame, reports_dir: Path, signals_dir: Path
 ) -> pd.DataFrame:
-    allowance = pd.read_csv(reports_dir / "06_transformation_allowance_revised.csv")
+    allowance = pd.read_csv(reports_dir / "06_transformation_allowance_final.csv", encoding="utf-8-sig")
     allowance = allowance[["dataset", *ALLOWANCE_COLUMNS, "evidence_level"]]
     frame = frame.merge(allowance, on="dataset", how="left")
 
