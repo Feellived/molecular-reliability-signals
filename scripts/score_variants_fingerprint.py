@@ -48,6 +48,9 @@ RDLogger.DisableLog("rdApp.*")
 
 SEEDS = [42, 43, 44, 45, 46]
 MODEL_NAMES = ["rf", "xgb"]
+# 담당2가 log1p 타깃으로 다시 학습한 회귀 물성. 재적합도 같은 공간에서 학습하고
+# 예측은 원 단위로 되돌려야 담당2의 예측(role2_signals.csv)과 맞는다.
+LOG1P_TARGETS = frozenset({"half_life_obach"})
 MORGAN_RADIUS = 2
 MORGAN_BITS = 2048
 MORGAN_CHIRALITY = True
@@ -103,10 +106,12 @@ def make_model(model_name: str, task_type: str, seed: int):
     return XGBRegressor(objective="reg:squarederror", **common)
 
 
-def predict_values(model, matrix: np.ndarray, task_type: str) -> np.ndarray:
+def predict_values(model, matrix: np.ndarray, task_type: str,
+                   log1p: bool = False) -> np.ndarray:
     if task_type == "classification":
         return model.predict_proba(matrix)[:, 1]
-    return model.predict(matrix)
+    values = model.predict(matrix)
+    return np.expm1(values) if log1p else values
 
 
 def _assemble(per_model: dict, primary: str, index) -> pd.DataFrame:
@@ -145,6 +150,9 @@ def process_dataset(
     labels = splits["Y_final"].astype(
         int if task_type == "classification" else float
     ).to_numpy()
+    log1p = dataset in LOG1P_TARGETS
+    if log1p:
+        labels = np.log1p(labels)
 
     origin_pred: dict = {}
     variant_pred: dict = {}
@@ -153,8 +161,8 @@ def process_dataset(
         for seed in SEEDS:
             model = make_model(name, task_type, seed)
             model.fit(origin_matrix[train_mask], labels[train_mask])
-            origin_stack.append(predict_values(model, origin_matrix, task_type))
-            variant_stack.append(predict_values(model, variant_matrix, task_type))
+            origin_stack.append(predict_values(model, origin_matrix, task_type, log1p))
+            variant_stack.append(predict_values(model, variant_matrix, task_type, log1p))
         origin_stack = np.vstack(origin_stack)
         variant_stack = np.vstack(variant_stack)
         origin_pred[name] = {
@@ -201,6 +209,7 @@ def process_dataset(
         "dataset": dataset,
         "task_type": task_type,
         "primary_model": primary,
+        "target_transform": "log1p" if log1p else "none",
         "n_origin": len(splits),
         "n_variant": len(variants),
         "elapsed_sec": round(time.perf_counter() - started, 1),
