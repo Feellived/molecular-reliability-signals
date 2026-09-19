@@ -91,7 +91,7 @@ def main() -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     allowance = pd.read_csv(
-        Path(args.reports_dir) / "06_transformation_allowance_revised.csv"
+        Path(args.reports_dir) / "06_transformation_allowance_final.csv", encoding="utf-8-sig"
     ).set_index("dataset")
     decision = pd.read_csv(
         Path(args.reports_dir) / "07_axis_decision.csv"

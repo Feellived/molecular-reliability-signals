@@ -23,7 +23,7 @@
                     아니라 분자의 성질이므로 물성 단위로 걸러낼 대상이 아니다.
                     입체가 없는 분자는 변형 수가 0이라 자동으로 배제된다.
 
-물성 단위 조건은 담당1의 06_transformation_allowance_revised.csv에서 읽는다.
+물성 단위 조건은 담당1의 06_transformation_allowance_final.csv에서 읽는다.
 허용으로 판정된 축만 해당 물성에서 사용한다.
 
 변수 개수를 늘리지 않는 것이 중요하다. 축별로 변수를 따로 만들면 기준 5개에
@@ -111,7 +111,7 @@ def main() -> int:
     scores_dir = Path(args.scores_dir)
     evaluation_dir = Path(args.evaluation_dir)
     allowance = pd.read_csv(
-        Path(args.reports_dir) / "06_transformation_allowance_revised.csv"
+        Path(args.reports_dir) / "06_transformation_allowance_final.csv", encoding="utf-8-sig"
     ).set_index("dataset")
     decision = pd.read_csv(
         Path(args.reports_dir) / "07_axis_decision.csv"
