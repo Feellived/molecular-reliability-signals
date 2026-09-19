@@ -133,14 +133,14 @@ def to_percentile(values, sorted_reference) -> np.ndarray:
                            side="right") / len(sorted_reference)
 
 
-# 분자 하나로 재현할 수 없는 특징. 물성 유형에 따라 다르다.
+# 세 시드가 없는 환경을 위한 대비 규칙. 회귀 ChemBERTa 컨포멀은 세 시드의
+# 표준편차라 시드가 하나뿐이면 만들 수 없다. 그때 쓸 축소판을 함께 내보낸다.
 #
-# 분류는 담당2의 aps_qhat과 예측 확률만 있으면 예측 집합 크기가 나오므로
-# 모두 재현된다. 회귀는 그렇지 않다. 담당2의 ChemBERTa 컨포멀은 분자마다
-# 다른 척도(conformal_scale)를 쓰는데 그 값이 지문 모델의 시드 간 표준편차와
-# 상관 0.05로 무관하고 비율이 0.7에서 202까지 흔들린다. 즉 우리가 가진
-# 재료로 재구성할 수 없는 별도의 척도 함수이며, 정의를 확인하기 전에는
-# 새 분자에 적용할 수 없다.
+# 분류는 담당2의 aps_qhat과 예측 확률만 있으면 예측 집합 크기가 나온다.
+# 회귀는 한동안 막혀 있었다. 담당2의 ChemBERTa 컨포멀 척도가 지문 모델의
+# 시드 간 표준편차와 상관 0.05로 무관해 재구성할 수 없었다. 담당2가 시드를
+# 셋으로 늘리고 척도를 그 표준편차로 정의하면서 풀렸다. 이제 우리도 세 시드를
+# 돌려 같은 값을 만들 수 있다.
 NOT_REPRODUCIBLE_BY_TASK = {"regression": ("base__conformal_cb",), "classification": ()}
 
 
@@ -184,11 +184,20 @@ def build_conformal(frame: pd.DataFrame, role2_dir: Path, dataset: str,
                         usecols=["row_uid", "std_fp_primary", "split", "Y_final",
                                  "pred_fp_primary"])
     calib = role2["split"].eq("calib").to_numpy()
-    full = pd.read_csv(role2_dir / dataset / "role2_signals.csv", nrows=1)
+    full = pd.read_csv(role2_dir / dataset / "role2_signals.csv")
     chemberta = {}
     for column, key in (("aps_qhat", "aps_qhat"), ("conformal_qhat", "conformal_qhat")):
         if column in full.columns:
             chemberta[key] = float(full[column].iloc[0])
+    # 담당2의 회귀 컨포멀 척도는 ChemBERTa 세 시드의 표준편차에 하한을 더한 값이다.
+    #   scale_floor = max(보정 분할 시드 표준편차의 25백분위수, std(Y_calib) * 0.001, 1e-8)
+    # 하한을 그대로 담아 새 분자에도 같은 규칙을 적용한다. 시드가 우연히 일치한
+    # 분자에서 구간이 0으로 붕괴하는 것을 막는 장치다.
+    if "conformal_ensemble_std" in full.columns:
+        observed = (full["conformal_scale"] - full["conformal_ensemble_std"]).median()
+        chemberta["scale_floor"] = round(float(observed), 10)
+        chemberta["scale_rule"] = ("ChemBERTa 세 시드 표준편차 + 하한. 하한은 보정 분할 "
+                                   "표준편차의 25백분위수이며 담당2가 산출한 값이다.")
 
     if task == "classification":
         record = {"task_type": task, "alpha": ALPHA,

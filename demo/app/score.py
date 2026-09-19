@@ -40,6 +40,43 @@ HIGH, MODERATE = 0.80, 0.30
 #   지금  Jiye/checkpoints/chemberta_seed_{42,43,44}/checkpoints/{물성}/{...}
 # 점추정은 담당2의 pred_chemberta_augmented와 맞추기 위해 시드 42를 쓴다.
 CHEMBERTA_SEED = 42
+# 회귀 컨포멀 척도는 세 시드의 표준편차다. 점추정은 담당2와 맞추기 위해
+# 42만 쓰지만, 척도를 재현하려면 셋을 다 돌려야 한다.
+CHEMBERTA_SEEDS = (42, 43, 44)
+
+
+def chemberta_dir(dataset: str, seed: int = CHEMBERTA_SEED) -> Path | None:
+    """물성과 시드에 해당하는 체크포인트 폴더. 배치가 두 가지라 둘 다 살핀다.
+
+    담당2가 시드를 셋으로 늘리며 폴더가 한 겹 깊어졌고, 배포 묶음은 그 구조를
+    app/checkpoints 아래로 옮겨 담는다. 어느 쪽이 넘어오든 찾아내게 한다.
+    """
+    root = chemberta_root()
+    if root is None:
+        return None
+    bases = [root]
+    if root.parent.name.startswith("chemberta_seed_"):
+        bases.append(root.parent.parent)
+    for base in bases:
+        for candidate in (base / f"chemberta_seed_{seed}" / "checkpoints" / dataset / "augmented",
+                          base / dataset / "augmented"):
+            if (candidate / "complete.json").exists():
+                return candidate
+    return None
+
+
+def chemberta_ensemble_std(dataset: str, smiles: str) -> float | None:
+    """원본 분자에 대한 세 시드 예측의 표준편차. 담당2의 회귀 컨포멀 척도다."""
+    values = []
+    for seed in CHEMBERTA_SEEDS:
+        path = chemberta_dir(dataset, seed)
+        if path is None:
+            return None
+        pred = predict_chemberta(path, [smiles])
+        if pred is None:
+            return None
+        values.append(float(pred[0]))
+    return float(np.std(values, ddof=0))
 
 
 def chemberta_root() -> Path | None:
@@ -181,9 +218,9 @@ def score(bundle_root: Path, dataset: str, smiles: str) -> dict:
     fp_seeds = predict_fingerprint(bundle, every)
     fp_pred = fp_seeds.mean(axis=0)
     cb_pred = None
-    cb_root = chemberta_root()
-    if cb_root is not None and (cb_root / dataset / "augmented").exists():
-        cb_pred = predict_chemberta(cb_root / dataset / "augmented", every)
+    cb_dir = chemberta_dir(dataset)
+    if cb_dir is not None:
+        cb_pred = predict_chemberta(cb_dir, every)
 
     spread_fp = float(np.std(fp_pred)) or 1.0
     offset = 1 + len(representation)
@@ -265,7 +302,7 @@ def score(bundle_root: Path, dataset: str, smiles: str) -> dict:
                           "note": "라벨이 둘이면 모델이 어느 쪽인지 가르지 못한 것이다"}
 
     conformal_signals = _conformal_signals(
-        bundle, parent_fp, float(cb_pred[0]) if cb_pred is not None else None,
+        bundle, dataset, parent_fp, float(cb_pred[0]) if cb_pred is not None else None,
         interval, float(fp_seeds.std(axis=0)[0]) + bundle.conformal.get("scale_floor", 0.0),
         parent)
 
@@ -316,7 +353,7 @@ def _aps_set_size(qhat: float, prediction: float, tag: str, smiles: str) -> floa
     return float(len(_aps_set(qhat, prediction, tag, smiles)))
 
 
-def _conformal_signals(bundle, fp_prediction, cb_prediction, interval,
+def _conformal_signals(bundle, dataset, fp_prediction, cb_prediction, interval,
                        fp_scale, smiles) -> dict:
     """기준선의 컨포멀 신호 두 종. 회귀는 구간 폭, 분류는 예측 집합 크기다."""
     tag = bundle.conformal.get("randomization_tag", "mist-fp-aps-v1")
@@ -331,9 +368,14 @@ def _conformal_signals(bundle, fp_prediction, cb_prediction, interval,
                 cb_params["aps_qhat"], cb_prediction, tag, smiles)
     else:
         out["base__conformal_fp"] = interval["width"] if interval else None
-        # 회귀의 ChemBERTa 컨포멀은 재현하지 않는다. 담당2의 척도 함수가
-        # 우리가 가진 재료와 무관해(지문 시드 표준편차와 상관 0.05) 근사하면
-        # 틀린 값을 넣게 된다. 결합 규칙도 이 신호를 뺀 판으로 적합했다.
+        # 회귀의 ChemBERTa 컨포멀. 담당2가 척도를 세 시드 표준편차로 정의하고
+        # 하한 규칙을 알려주면서 재현이 가능해졌다.
+        #   폭 = 2 × qhat × (세 시드 표준편차 + 하한)
+        floor = cb_params.get("scale_floor")
+        if cb_params.get("conformal_qhat") is not None and floor is not None:
+            spread = chemberta_ensemble_std(dataset, smiles)
+            if spread is not None:
+                out["base__conformal_cb"] = 2.0 * cb_params["conformal_qhat"] * (spread + floor)
     return out
 
 
@@ -347,7 +389,11 @@ def _combined(bundle, top, density, fp_pred, cb_pred, pooled, a_axis,
            "cond_B__cb_augmented__std": cb_pooled,
            "axis__cb_augmented__A": a_axis.dispersion or 0.0}
     raw.update(conformal_signals)
-    combiner = bundle.combiner_single
+    # 세 시드를 못 찾아 회귀 ChemBERTa 컨포멀이 비면 그 신호를 뺀 규칙으로
+    # 떨어진다. 조용히 다른 값을 끼워 넣는 것보다 낫다.
+    full = bundle.combiner
+    combiner = (full if all(raw.get(c) is not None for c in full["features"])
+                else bundle.combiner_single)
     values = []
     for column in combiner["features"]:
         value = raw.get(column)

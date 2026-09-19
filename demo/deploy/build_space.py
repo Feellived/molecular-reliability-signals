@@ -67,10 +67,14 @@ def main() -> int:
     target.mkdir()
     for dataset in args.datasets:
         shutil.copytree(bundle / dataset, target / dataset)
-        source = checkpoints / dataset / "augmented"
-        if not source.exists():
-            raise SystemExit(f"체크포인트가 없다: {source}")
-        shutil.copytree(source, out / "app" / "checkpoints" / dataset / "augmented")
+        # 회귀 ChemBERTa 컨포멀 척도가 세 시드의 표준편차라 셋을 모두 싣는다.
+        # 점추정은 42만 쓰지만 척도를 재현하려면 나머지도 필요하다.
+        for seed in (42, 43, 44):
+            source = checkpoints.parent.parent / f"chemberta_seed_{seed}" / "checkpoints" / dataset / "augmented"
+            if not source.exists():
+                raise SystemExit(f"체크포인트가 없다: {source}")
+            shutil.copytree(source, out / "app" / "checkpoints"
+                            / f"chemberta_seed_{seed}" / "checkpoints" / dataset / "augmented")
 
     # 물성 폴더 밖에 있는 산출물도 함께 옮긴다. 판정 경계 보정이 여기 있으며,
     # 빠지면 배포본이 기본 경계값으로 떨어진다.
