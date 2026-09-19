@@ -37,6 +37,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from dataset_repairs import apply_known_repairs  # noqa: E402
 from score_variants_fingerprint import (  # noqa: E402
+    LOG1P_TARGETS,
     MODEL_NAMES,
     SEEDS,
     make_model,
@@ -65,6 +66,9 @@ def process_dataset(
     labels = splits["Y_final"].astype(
         int if task_type == "classification" else float
     ).to_numpy()
+    log1p = dataset in LOG1P_TARGETS
+    if log1p:
+        labels = np.log1p(labels)
 
     is_train = splits["split"].eq("train").to_numpy()
     fold = splits["cv_fold"].to_numpy()
@@ -87,11 +91,11 @@ def process_dataset(
                 model = make_model(name, task_type, seed)
                 model.fit(origin_matrix[fit_rows], labels[fit_rows])
                 origin_stack.append(
-                    predict_values(model, origin_matrix[origin_rows], task_type)
+                    predict_values(model, origin_matrix[origin_rows], task_type, log1p)
                 )
                 if variant_rows.any():
                     variant_stack.append(
-                        predict_values(model, variant_matrix[variant_rows], task_type)
+                        predict_values(model, variant_matrix[variant_rows], task_type, log1p)
                     )
             origin_stack = np.vstack(origin_stack)
             origin_out[name]["mean"][origin_rows] = origin_stack.mean(axis=0)
