@@ -90,7 +90,7 @@ function renderAxes(axes, baseline) {
   const c = axes["화학 공간 위치"];
   const cards = [
     { title: "표현 안정성", usable: a.usable, value: a.percentile,
-      cap: a.usable ? `등가 표기 ${a.n_variants}종에서의 흔들림` : a.reason },
+      cap: a.usable ? `등가 표기 ${a.n_variants}종 사이의 흔들림` : a.reason },
     { title: "입력 상태 민감성", usable: true, value: b.percentile,
       cap: "조건이 성립하는 축의 변형을 합친 흔들림" },
     { title: "화학 공간 위치", usable: true, value: c.percentile,

@@ -5,11 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MIST · 입력 상태 민감성 기반 예측 신뢰성</title>
 <meta name="color-scheme" content="light dark">
+<meta name="description" content="분자 하나를 여러 형태로 다시 적어 넣고, 물성 예측이 얼마나 흔들리는지로 그 예측을 믿어도 되는지 보여준다.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d6155'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='Arial,sans-serif' font-size='17' font-weight='700' fill='white'%3EM%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<a class="skip" href="#query">본문으로 건너뛰기</a>
 <header>
   <div class="wrap head">
     <div class="brand">
@@ -35,10 +38,10 @@
 
   <div class="examples">
     <span class="lead">예시</span>
-    <button type="button" data-smiles="CC(C)(C)NCC(O)c1ccc(O)c(CO)c1" data-dataset="bbb_martins">살부타몰 · 뇌혈관장벽</button>
+    <button type="button" data-smiles="CC(C)NCC(O)COc1cccc2ccccc12" data-dataset="cyp2d6_veith">프로프라놀롤 · CYP2D6 억제</button>
+    <button type="button" data-smiles="CC(=O)CC(c1ccccc1)c1c(O)c2ccccc2oc1=O" data-dataset="cyp2c9_veith">와파린 · CYP2C9 억제</button>
     <button type="button" data-smiles="CC(C)(C)NCC(O)c1ccc(O)c(CO)c1" data-dataset="herg">살부타몰 · hERG</button>
     <button type="button" data-smiles="Cn1cnc2c1c(=O)n(C)c(=O)n2C" data-dataset="lipophilicity_astrazeneca">카페인 · logD</button>
-    <button type="button" data-smiles="CC(=O)Oc1ccccc1C(=O)O" data-dataset="caco2_wang">아스피린 · 장투과도</button>
   </div>
 
   <!-- 첫 화면. 무엇을 하는 도구인지 먼저 말한다. -->
@@ -48,7 +51,7 @@
       <li><b>전부 모델에 넣고 답이 흔들리는지 본다.</b> 지문 기반 모델과 SMILES 언어 모델 두 계열을 함께 쓴다.</li>
       <li><b>흔들리면 그 예측은 믿기 어렵다.</b> 흔들림 상위 25퍼센트 분자가 하위 25퍼센트보다 1.25배 더 틀린다.</li>
     </ol>
-    <p class="landing-note">물성마다 쓸 수 있는 변형이 다르다. 측정 조건에 맞지 않는 축은 쓰지 않고, 왜 제외했는지 함께 보여준다.</p>
+    <p class="landing-note">물성마다 쓸 수 있는 변형이 다르다. 측정 조건에 맞지 않는 축은 쓰지 않고 왜 제외했는지 함께 보여준다.</p>
   </section>
 
   <div id="status" hidden></div>
@@ -57,7 +60,7 @@
   <section id="skeleton" class="skeleton" hidden>
     <div class="sk-answer"><div class="sk-art"></div><div class="sk-num"><i></i><b></b><i class="w60"></i></div></div>
     <div class="sk-verdict"><i class="w30"></i><b></b><i class="w80"></i></div>
-    <div class="sk-axes"><div></div><div></div><div></div></div>
+    <div class="sk-axes"><div></div><div></div><div></div><div></div></div>
   </section>
 
   <section id="result" hidden>
@@ -82,7 +85,7 @@
 
     <section class="block" data-enter="3">
       <h2>신뢰성 축</h2>
-      <p class="hint">세 축은 서로 다른 것을 잰다. 하나의 점수로 합치지 않는다.</p>
+      <p class="hint">축마다 다른 것을 잰다. 하나의 점수로 합치지 않는다. 점선은 기존 신호다.</p>
       <div class="axes" id="axes"></div>
     </section>
 
@@ -100,7 +103,7 @@
 
     <section class="block" data-enter="6">
       <h2>축별 판정</h2>
-      <p class="hint">어느 축을 썼고, 쓰지 않은 축은 왜 제외했는지.</p>
+      <p class="hint">어느 축을 썼고 쓰지 않은 축은 왜 제외했는지.</p>
       <div id="detail"></div>
     </section>
 
@@ -112,7 +115,7 @@
 </main>
 
 <footer class="wrap">
-  <p>TOBIG&#39;s · TDC ADMET · 세 신뢰성 축을 분리해 표시하며 단일 점수로 합산하지 않는다</p>
+  <p>TOBIG&#39;s · TDC ADMET · 신뢰성 축을 분리해 표시하며 단일 점수로 합산하지 않는다</p>
 </footer>
 
 <script src="app.js"></script>
