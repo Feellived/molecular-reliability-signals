@@ -164,7 +164,7 @@ def _verdict(prediction, interval, prediction_set, axes, ad_percentile, task,
         notes.append("학습 데이터에서 먼 골격이므로 예측 자체의 신뢰도도 낮다.")
     if unusable:
         names = ", ".join(a.name for a in unusable)
-        notes.append(f"{names} 축은 이 물성의 측정 조건에서 의미를 갖지 않아 판정에서 제외했다.")
+        notes.append(f"{names} 축은 이 물성의 측정 조건에서 의미가 없어 판정에서 제외했다.")
 
     # 등급에 근거를 붙인다. 경계가 임의값이 아니라 실제 미달률로 정해졌음을
     # 화면에서 말할 수 있게 한다.
