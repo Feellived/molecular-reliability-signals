@@ -84,7 +84,7 @@ function setStatus(message, isError = false) {
 }
 
 // 계획서 7.3절: 세 축을 분리해 표시하고 단일 점수로 합산하지 않는다.
-function renderAxes(axes) {
+function renderAxes(axes, baseline) {
   const a = axes["표현 안정성"];
   const b = axes["입력 상태 민감성"];
   const c = axes["화학 공간 위치"];
@@ -96,6 +96,13 @@ function renderAxes(axes) {
     { title: "화학 공간 위치", usable: true, value: c.percentile,
       cap: `가까운 5개와 유사도 ${num(c.nearest5_tanimoto, 2)} · 이웃 ${c["neighbors_over_0.40"]}개` },
   ];
+  // 기존 신호도 함께 둔다. 우리 축과 원천이 달라, 둘이 같이 높으면 근거가 겹치지
+  // 않은 채 쌓인 것이고 하나만 높으면 무엇이 판정을 떠받치는지가 드러난다.
+  const d = (baseline || {})["모델 불일치"];
+  if (d) {
+    cards.push({ title: "모델 불일치", usable: true, value: d.percentile, baseline: true,
+      cap: `지문 ${num(d.fingerprint, 3)} · 언어 모델 ${num(d.language_model, 3)} (기존 신호)` });
+  }
   $("axes").innerHTML = cards.map((card) => {
     const hot = has(card.value) && card.value >= HIGH;
     const width = has(card.value) ? card.value * 100 : 0;
@@ -103,7 +110,7 @@ function renderAxes(axes) {
       ? `<div class="num">${pctText(card.value)}<small>백분위</small></div>
          <div class="bar"><span style="--w:${width}%"></span></div>`
       : `<div class="num">산출 불가</div><div class="bar"></div>`;
-    return `<div class="axis${hot ? " hot" : ""}${card.usable ? "" : " off"}">
+    return `<div class="axis${hot ? " hot" : ""}${card.usable ? "" : " off"}${card.baseline ? " baseline" : ""}">
       <h3>${card.title}</h3>${body}<div class="cap">${card.cap}</div></div>`;
   }).join("");
 }
@@ -249,7 +256,7 @@ function render(data) {
   if (data.verdict.evidence) notes.push(`<li class="evidence">${data.verdict.evidence.text}</li>`);
   $("verdict-notes").innerHTML = notes.join("");
 
-  renderAxes(data.reliability_axes);
+  renderAxes(data.reliability_axes, data.baseline_signals);
   renderShifts(data);
   renderNeighbors(data);
   renderDetail(data);

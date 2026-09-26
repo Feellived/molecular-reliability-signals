@@ -294,6 +294,17 @@ def score(bundle_root: Path, dataset: str, smiles: str) -> dict:
         for i in np.argsort(similarity)[::-1][:2]
     ]
 
+    # 기존 신호 하나를 더 보여준다. 지문 모델과 언어 모델이 같은 분자를 두고
+    # 다른 답을 내면 그 자체가 위험 신호다. 우리 축과 원천이 다르므로 나란히
+    # 두어야 무엇이 이 판정을 떠받치는지 읽을 수 있다.
+    disagreement = None
+    if cb_pred is not None:
+        gap = abs(parent_fp - float(cb_pred[0]))
+        disagreement = {"value": round(gap, 4),
+                        "percentile": bundle.percentile("base__disagreement", gap),
+                        "fingerprint": round(parent_fp, 4),
+                        "language_model": round(float(cb_pred[0]), 4)}
+
     # 컨포멀 구간
     interval = None
     if bundle.conformal.get("qhat") is not None:
@@ -335,6 +346,9 @@ def score(bundle_root: Path, dataset: str, smiles: str) -> dict:
                          "neighbors_over_0.40": density,
                          "percentile": ad_percentile,
                          "nearest_training": nearest},
+        },
+        "baseline_signals": {
+            "모델 불일치": disagreement,
         },
         "combined_risk": _combined(bundle, top, density, fp_pred, cb_pred,
                                    pooled_stats, a_axis, cb_pooled, conformal_signals),
