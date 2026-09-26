@@ -11,7 +11,7 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"   # Juhyeong/
-PY="${MIST_PYTHON:-$HOME/miniforge3/envs/mist/bin/python}"
+PY="${MIST_PYTHON:-$HOME/.venvs/mist/bin/python}"
 BUNDLE="$HERE/data/processed/scores_role4/demo_bundle"
 STAGE="${MIST_STAGE:-/tmp/mist-space}"
 WITH_MODELS=""

@@ -17,7 +17,7 @@ app/validate.py  파이프라인 값 재현 검증
 ### 실행
 
 ```
-~/miniforge3/envs/mist/bin/python -m uvicorn api:app --port 8811
+~/.venvs/mist/bin/python -m uvicorn api:app --port 8811
 ```
 
 `app/` 안에서 실행한다. 산출물 경로는 `MIST_BUNDLE` 환경변수로 바꿀 수 있고 기본값은 `data/processed/scores_role4/demo_bundle`이다.
