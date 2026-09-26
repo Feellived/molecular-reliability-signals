@@ -292,3 +292,7 @@ footer p { margin: 0; color: var(--muted); font-size: 12px; }
   .axes, .shifts, .sk-axes { grid-template-columns: 1fr; }
   .verdict-line { font-size: 17px; }
 }
+
+/* 기존 신호 카드. 우리 축과 구분되게 점선 테두리로 둔다. */
+.axis.baseline { border: 1px dashed var(--line); box-shadow: none; }
+.axis.baseline h3::after { content: " · 기존"; color: var(--muted); font-weight: 400; }
