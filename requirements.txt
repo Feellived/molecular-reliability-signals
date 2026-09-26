@@ -1,8 +1,9 @@
 # 분석 파이프라인 환경. 데모는 demo/deploy/requirements.txt를 따로 쓴다.
 #
 # 설치
-#   conda create -n mist python=3.11 -y && conda activate mist
-#   pip install -r requirements.txt
+#   python3.12 -m venv ~/.venvs/mist
+#   torch·transformers·PyTDC를 뺀 나머지를 ~/.venvs/mist/bin/pip로 설치한다.
+#   torch·transformers는 아래 주석대로 ~/.venvs/mist-torch에 따로 둔다.
 #
 # 판을 고정하는 이유는 지문 모델이 joblib으로 저장되어 있어서다. scikit-learn과
 # xgboost 판이 다르면 저장된 모델을 읽지 못하거나 다른 결과를 낸다. numpy와
