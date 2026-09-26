@@ -21,7 +21,10 @@ import json
 import shutil
 from pathlib import Path
 
-DEFAULT = ("bbb_martins", "herg", "lipophilicity_astrazeneca", "caco2_wang")
+# CYP 억제 두 종을 넣은 이유는 이 물성군에서만 B축이 뚜렷하게 작동하기 때문이다.
+# 나머지 넷은 B축이 거의 듣지 않는 물성으로, 신호가 언제 안 듣는지도 함께 보인다.
+DEFAULT = ("cyp2d6_veith", "cyp2c9_veith", "bbb_martins", "herg",
+           "lipophilicity_astrazeneca", "caco2_wang")
 APP_FILES = ("engine.py", "score.py", "api.py")
 
 

@@ -12,7 +12,7 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"   # Juhyeong/
 PY="${MIST_PYTHON:-$HOME/.venvs/mist/bin/python}"
-BUNDLE="$HERE/data/processed/scores_role4/demo_bundle"
+BUNDLE="$HERE/data/processed/scores_role4_r2/demo_bundle"
 STAGE="${MIST_STAGE:-/tmp/mist-space}"
 WITH_MODELS=""
 DO_DEPLOY=""
@@ -26,18 +26,18 @@ done
 
 echo "[1/4] 판정 경계 보정"
 "$PY" "$HERE/scripts/calibrate_verdict.py" \
-  --evaluation-dir "$HERE/data/processed/scores_role4/evaluation" \
-  --out "$HERE/data/processed/scores_role4/verdict_calibration.json" | tail -5
-cp "$HERE/data/processed/scores_role4/verdict_calibration.json" "$BUNDLE/"
+  --evaluation-dir "$HERE/data/processed/scores_role4_r2/evaluation" \
+  --out "$HERE/data/processed/scores_role4_r2/verdict_calibration.json" | tail -5
+cp "$HERE/data/processed/scores_role4_r2/verdict_calibration.json" "$BUNDLE/"
 
 echo
 echo "[2/4] 데모 산출물 ${WITH_MODELS:+(모델 캐시 포함)}"
 "$PY" "$HERE/scripts/build_demo_bundle.py" \
-  --evaluation-dir "$HERE/data/processed/scores_role4/evaluation" \
+  --evaluation-dir "$HERE/data/processed/scores_role4_r2/evaluation" \
   --role2-dir "$HERE/../Jiye/outputs" \
   --processed-dir "$HERE/data/processed/pipeline_yoonsoo" \
   --reports-dir "$HERE/data/processed/pipeline_yoonsoo/reports" \
-  --scores-dir "$HERE/data/processed/scores_role4" \
+  --scores-dir "$HERE/data/processed/scores_role4_r2" \
   --out-dir "$BUNDLE" $WITH_MODELS | tail -6
 
 echo
@@ -51,11 +51,11 @@ echo
 if [ -n "$DO_DEPLOY" ]; then
   echo "[4/4] Cloud Run 배포"
   (cd "$STAGE" && gcloud run deploy mist --source . \
-     --project mist-demo-507509 --region asia-northeast3 \
+     --project mist-demo-507707 --region asia-northeast3 \
      --allow-unauthenticated --memory 2Gi --cpu 2 --timeout 300 --min-instances 0)
 else
   echo "[4/4] 배포는 건너뜀. 올리려면 --deploy 를 붙이거나 다음을 실행한다."
   echo "  cd $STAGE && gcloud run deploy mist --source . \\"
-  echo "    --project mist-demo-507509 --region asia-northeast3 \\"
+  echo "    --project mist-demo-507707 --region asia-northeast3 \\"
   echo "    --allow-unauthenticated --memory 2Gi --cpu 2 --timeout 300 --min-instances 0"
 fi
