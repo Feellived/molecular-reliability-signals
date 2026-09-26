@@ -1,11 +1,13 @@
-import pandas as pd, numpy as np, warnings
+import pandas as pd, numpy as np, warnings, sys
 from pathlib import Path
 from scipy.stats import rankdata, wilcoxon
 from sklearn.linear_model import Ridge
 from sklearn.metrics import average_precision_score
 warnings.filterwarnings("ignore")
 B=Path("/Users/zzuhyeong2/Library/CloudStorage/GoogleDrive-a01056371120@gmail.com/My Drive/Conference_2026")
-EV=B/"Juhyeong/data/processed/scores_role4/evaluation"
+# 인자로 산출 폴더를 받는다. 없으면 기존 scores_role4.
+ROOT=B/"Juhyeong/data/processed"/(sys.argv[1] if len(sys.argv)>1 else "scores_role4")
+EV=ROOT/"evaluation"
 # 계획서 4.4절: 기준 모형은 적용가능도메인과 컨포멀만
 BASE_PRE=["base__ad_knn__pct","base__ad_density__pct","base__conformal_cb__pct","base__conformal_fp__pct"]
 DIS=["base__disagreement__pct"]
@@ -36,7 +38,8 @@ for d in sorted(p.name for p in EV.iterdir() if p.is_dir() and not p.name.starts
         r[f"aurc__{n}"]=naurc(s,err)
     rows.append(r)
 t=pd.DataFrame(rows)
-t.to_csv(B/"Juhyeong/data/processed/scores_role4/expanded_ablation_22/preregistered_ablation.csv",index=False)
+(ROOT/"expanded_ablation_22").mkdir(parents=True,exist_ok=True)
+t.to_csv(ROOT/"expanded_ablation_22/preregistered_ablation.csv",index=False)
 print("=== 계획서 6.4절 순서, 사전 지정 기준 모형 (AD+컨포멀) ===")
 print(f"{'구성':20s}{'AUPRC':>9s}{'AURC':>9s}")
 for n in CFG: print(f"{n:20s}{t[f'auprc__{n}'].mean():9.4f}{t[f'aurc__{n}'].mean():9.4f}")
