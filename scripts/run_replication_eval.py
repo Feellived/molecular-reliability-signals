@@ -39,18 +39,22 @@ def naurc(score, error):
     return np.nan if rand - oracle < 1e-12 else (f(score) - oracle) / (rand - oracle)
 
 
-def build_frame(dataset, splits_dir, role2_dir, scores_dir, axes):
+def build_frame(dataset, splits_dir, role2_dir, scores_dir, axes, task):
     splits = pd.read_csv(splits_dir / dataset / "splits.csv")
     role2 = pd.read_csv(role2_dir / dataset / "role2_signals.csv")
     conf = pd.read_csv(scores_dir / "fp_conformal" / dataset / "fp_conformal.csv")
     frame = splits[["row_uid", "split", "parent_smiles", "scaffold_group", "Y_final"]].merge(
         role2[["row_uid", "pred_fp_primary", "ad_knn_tanimoto_top5_mean", "ad_local_density_count_s040"]], on="row_uid"
-    ).merge(conf[["row_uid", "fp_aps_set_size"]], on="row_uid")
+    )
+    # 지문 컨포멀은 분류가 예측 집합 크기, 회귀가 구간 폭이다.
+    # assemble_signals.py가 22종에서 쓰는 대응과 같다.
+    conformal_column = "fp_aps_set_size" if "fp_aps_set_size" in conf else "fp_conformal_width"
+    frame = frame.merge(conf[["row_uid", conformal_column]], on="row_uid")
     frame = frame[frame.split.isin(["meta", "test"])].reset_index(drop=True)
     frame["error"] = np.abs(frame.Y_final.astype(float) - frame.pred_fp_primary)
     frame["ad_knn"] = -frame.ad_knn_tanimoto_top5_mean
     frame["ad_density"] = -frame.ad_local_density_count_s040
-    frame["conformal_fp"] = frame.fp_aps_set_size
+    frame["conformal_fp"] = frame[conformal_column]
 
     variants = pd.read_csv(scores_dir / "fingerprint" / dataset / "variant_predictions_fp.csv")
     variants = variants[variants.axis.isin(axes)]
@@ -60,7 +64,7 @@ def build_frame(dataset, splits_dir, role2_dir, scores_dir, axes):
     shape, counts = [], []
     for uid in frame.row_uid:
         values = grouped.get(uid, np.array([]))
-        shape.append(statistics(values, float(origin.at[uid, "pred_fp_primary"]), scale, "classification"))
+        shape.append(statistics(values, float(origin.at[uid, "pred_fp_primary"]), scale, task))
         counts.append(len(values))
     for s in STATS:
         frame[f"shape_{s}"] = [d[s] for d in shape]
@@ -91,7 +95,8 @@ def main() -> int:
     report = {}
     for dataset in args.datasets:
         axes = allowed_axes(dataset, allowance, decision)
-        frame = build_frame(dataset, Path(args.splits_dir), Path(args.role2_dir), Path(args.scores_dir), axes)
+        task = pd.read_csv(Path(args.splits_dir) / dataset / "splits.csv", usecols=["task_type"]).task_type.iloc[0]
+        frame = build_frame(dataset, Path(args.splits_dir), Path(args.role2_dir), Path(args.scores_dir), axes, task)
         meta, test = frame[frame.split == "meta"], frame[frame.split == "test"].reset_index(drop=True)
         target = rankdata(meta.error) / len(meta)
         error = test.error.to_numpy(float)
