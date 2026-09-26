@@ -268,7 +268,10 @@ def score(bundle_root: Path, dataset: str, smiles: str) -> dict:
         pooled.extend(chunk.tolist())
     pooled_stats = _axis_stats(parent_fp, np.array(pooled), spread_fp)
     cb_pooled = None
-    if cb_pred is not None and b_variants:
+    if cb_pred is not None:
+        # 변형이 하나도 없으면 흔들림은 0이다. 지문 쪽(pooled_stats)이 이미 그렇게
+        # 두므로 언어 모델 쪽도 맞춘다. 예전에는 여기서 None이 남아 결합 규칙이
+        # 통째로 비었고, 변형이 안 생기는 분자에서 통합 위험도가 사라졌다.
         cb_spread = float(np.std(cb_pred)) or 1.0
         cb_pooled = _axis_stats(float(cb_pred[0]), cb_pred[offset:], cb_spread)["dispersion"]
     b_percentile = bundle.percentile("cond_B__fp_primary__std", pooled_stats["dispersion"])
@@ -282,6 +285,14 @@ def score(bundle_root: Path, dataset: str, smiles: str) -> dict:
     top = float(np.sort(similarity)[-AD_NEIGHBORS:].mean())
     density = int((similarity >= AD_SIMILARITY_CUTOFF).sum())
     ad_percentile = bundle.percentile("base__ad_knn", -top)
+    # 적용가능도메인은 "학습 데이터와 얼마나 닮았나"인데 숫자만 보면 와닿지 않는다.
+    # 가장 닮은 학습 분자를 직접 그려서 얼마나 닮았는지 눈으로 보게 한다.
+    nearest = [
+        {"smiles": bundle.neighbor_smiles[i],
+         "similarity": round(float(similarity[i]), 4),
+         "svg": depict(bundle.neighbor_smiles[i], width=200, height=140)}
+        for i in np.argsort(similarity)[::-1][:2]
+    ]
 
     # 컨포멀 구간
     interval = None
@@ -322,7 +333,8 @@ def score(bundle_root: Path, dataset: str, smiles: str) -> dict:
                           "axes": [_dump(r) for r in results]},
             "화학 공간 위치": {"nearest5_tanimoto": round(top, 4),
                          "neighbors_over_0.40": density,
-                         "percentile": ad_percentile},
+                         "percentile": ad_percentile,
+                         "nearest_training": nearest},
         },
         "combined_risk": _combined(bundle, top, density, fp_pred, cb_pred,
                                    pooled_stats, a_axis, cb_pooled, conformal_signals),

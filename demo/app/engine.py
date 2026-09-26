@@ -219,6 +219,8 @@ class Bundle:
                 "build_demo_bundle.py를 --with-models로 실행해야 한다.")
         import pandas as pd
         neighbors = pd.read_csv(base / "neighbors.csv")
+        # SMILES도 들고 있어야 "가장 닮은 학습 분자"를 구조로 보여줄 수 있다.
+        self.neighbor_smiles = neighbors["parent_smiles"].tolist()
         self.neighbor_fp = fingerprints(neighbors["parent_smiles"])
         self.task_type = json.loads(
             (base / "models.json").read_text(encoding="utf-8"))["task_type"]

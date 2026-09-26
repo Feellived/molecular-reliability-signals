@@ -134,6 +134,26 @@ function renderShifts(data) {
     parts.slice(0, 2).map((p) => card(p.label, p.svg, p.prediction, p.shift, false)).join("");
 }
 
+// 적용가능도메인은 "학습 데이터와 얼마나 닮았나"인데 숫자만으로는 와닿지 않는다.
+// 가장 닮은 학습 분자를 그려서 얼마나 닮았는지 직접 보게 한다.
+function renderNeighbors(data) {
+  const list = data.reliability_axes["화학 공간 위치"].nearest_training || [];
+  const block = $("neighbor-block");
+  if (!list.length) { block.hidden = true; return; }
+  block.hidden = false;
+  $("neighbors").innerHTML =
+    `<div class="shift origin">
+       <div class="top"><span>지금 넣은 분자</span><span>기준</span></div>
+       <div class="art">${data.svg || ""}</div>
+       <div class="bottom"><span class="val">${num(data.prediction, 3)}</span></div>
+     </div>` +
+    list.map((n) => `<div class="shift">
+       <div class="top"><span>학습 분자</span></div>
+       <div class="art">${n.svg || ""}</div>
+       <div class="bottom"><span class="val">유사도 ${num(n.similarity, 2)}</span></div>
+     </div>`).join("");
+}
+
 // 변형 예측이 어디에 흩어지는지를 점으로 그린다. 흔들림이 무엇인지가
 // 숫자보다 눈으로 먼저 들어온다. 눈금은 같은 모델끼리만 공유한다.
 function strip(origin, spread, lo, hi) {
@@ -231,6 +251,7 @@ function render(data) {
 
   renderAxes(data.reliability_axes);
   renderShifts(data);
+  renderNeighbors(data);
   renderDetail(data);
   renderMeta(data);
   document.querySelectorAll("#result [data-enter]").forEach((node) => {
