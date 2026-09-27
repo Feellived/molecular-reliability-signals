@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MIST · 입력 상태 민감성 기반 예측 신뢰성</title>
 <meta name="color-scheme" content="light dark">
-<meta name="description" content="분자 하나를 여러 형태로 다시 적어 넣고, 물성 예측이 얼마나 흔들리는지로 그 예측을 믿어도 되는지 보여준다.">
+<meta name="description" content="분자 하나를 여러 형태로 다시 적어 넣고, 물성 예측이 얼마나 변동하는지로 그 예측을 믿어도 되는지 보여준다.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d6155'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='Arial,sans-serif' font-size='17' font-weight='700' fill='white'%3EM%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
@@ -48,8 +48,8 @@
   <section id="landing" class="landing">
     <ol>
       <li><b>같은 분자를 여러 형태로 다시 적는다.</b> 등가 SMILES 표기, 호변이성질체, 양성자화 상태, 입체 표기를 바꾼 판을 만든다.</li>
-      <li><b>전부 모델에 넣고 답이 흔들리는지 본다.</b> 지문 기반 모델과 SMILES 언어 모델 두 계열을 함께 쓴다.</li>
-      <li><b>흔들리면 그 예측은 믿기 어렵다.</b> 흔들림 상위 25퍼센트 분자가 하위 25퍼센트보다 1.25배 더 틀린다.</li>
+      <li><b>전부 모델에 넣고 답이 달라지는지 본다.</b> 지문 기반 모델과 SMILES 언어 모델 두 계열을 함께 쓴다.</li>
+      <li><b>변동이 크면 그 예측은 믿기 어렵다.</b> 예측 변동 상위 25퍼센트 분자가 하위 25퍼센트보다 1.25배 더 틀린다.</li>
     </ol>
     <p class="landing-note">물성마다 쓸 수 있는 변형이 다르다. 측정 조건에 맞지 않는 축은 쓰지 않고 왜 제외했는지 함께 보여준다.</p>
   </section>
@@ -90,7 +90,7 @@
     </section>
 
     <section class="block" id="shift-block" data-enter="4">
-      <h2>무엇이 예측을 흔들었나</h2>
+      <h2>무엇이 예측을 크게 바꿨나</h2>
       <p class="hint">같은 물질을 다르게 적은 것뿐인데 모델의 답이 달라진다.</p>
       <div class="shifts" id="shifts"></div>
     </section>
