@@ -90,9 +90,9 @@ function renderAxes(axes, baseline) {
   const c = axes["화학 공간 위치"];
   const cards = [
     { title: "표현 안정성", usable: a.usable, value: a.percentile,
-      cap: a.usable ? `등가 표기 ${a.n_variants}종 사이의 흔들림` : a.reason },
+      cap: a.usable ? `등가 표기 ${a.n_variants}종 사이의 예측 변동` : a.reason },
     { title: "입력 상태 민감성", usable: true, value: b.percentile,
-      cap: "조건이 성립하는 축의 변형을 합친 흔들림" },
+      cap: "조건이 성립하는 축의 변형을 합친 예측 변동" },
     { title: "화학 공간 위치", usable: true, value: c.percentile,
       cap: `가까운 5개와 유사도 ${num(c.nearest5_tanimoto, 2)} · 이웃 ${c["neighbors_over_0.40"]}개` },
   ];
@@ -161,7 +161,7 @@ function renderNeighbors(data) {
      </div>`).join("");
 }
 
-// 변형 예측이 어디에 흩어지는지를 점으로 그린다. 흔들림이 무엇인지가
+// 변형 예측이 어디에 흩어지는지를 점으로 그린다. 예측 변동이 무엇인지가
 // 숫자보다 눈으로 먼저 들어온다. 눈금은 같은 모델끼리만 공유한다.
 function strip(origin, spread, lo, hi) {
   if (!spread || !spread.length) return "";
@@ -241,7 +241,7 @@ function render(data) {
   } else if (set) {
     const labels = set.labels.map((l) => (l === 1 ? "양성" : "음성")).join(", ") || "없음";
     $("pred-band").textContent = `${Math.round(set.coverage * 100)}% 예측 집합 {${labels}}`
-      + (set.size === 1 ? " · 한 라벨로 확신" : " · 가르지 못함");
+      + (set.size === 1 ? " · 한 라벨로 확신" : " · 구분하지 못함");
   } else {
     $("pred-band").textContent = "";
   }
