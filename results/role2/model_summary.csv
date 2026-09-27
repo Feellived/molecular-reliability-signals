@@ -1,0 +1,11 @@
+task,model,datasets,mean_roc_auc,mean_pr_auc,mean_accuracy,mean_rmse,mean_mae,mean_r2
+classification,ChemBERTa augmented,13,0.762564,0.743772,0.746539,,,
+classification,ChemBERTa regular,13,0.720461,0.695519,0.723864,,,
+classification,Fingerprint primary,13,0.806227,0.775819,0.783829,,,
+classification,RandomForest,13,0.804114,0.772618,0.784238,,,
+classification,XGBoost,13,0.787077,0.757626,0.771088,,,
+regression,ChemBERTa augmented,9,,,,15.448637,11.506989,0.185776
+regression,ChemBERTa regular,9,,,,16.052900,12.016112,0.055534
+regression,Fingerprint primary,9,,,,15.537450,11.395062,0.123660
+regression,RandomForest,9,,,,15.181919,11.059813,0.129178
+regression,XGBoost,9,,,,20.325182,12.694682,-2.764555
