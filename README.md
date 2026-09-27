@@ -117,12 +117,18 @@ Cloud Run 최소 인스턴스는 0이라 접속이 없으면 비용이 발생하
 ## 저장소 구조
 
 ```
-docs/          보고서·계획서·사전 등록 기록, 본문 그림(figures/)
-scripts/       변형 채점, 신호 산출, 제거 실험, 재현 평가 (46개)
-demo/          FastAPI 백엔드 + 정적 화면, Cloud Run 배포 설정
-notebooks/     탐색용
-data/          git 추적 안 함. scripts로 재생성한다
+docs/                보고서·계획서·사전 등록 기록, 본문 그림(figures/)
+scripts/             변형 채점, 신호 산출, 제거 실험, 재현 평가 (60개)
+demo/                FastAPI 백엔드 + 정적 화면, Cloud Run 배포 설정
+notebooks/           Colab 작업본 9개
+configs/             담당2 모델 설정
+experiment_records/  담당2 지문 모델 실행 코드와 기록
+results/role2/       담당2 실험 요약 — 22종 성능과 재현 정보
+tests/               담당2 회귀 시험 5종
+data/                git 추적 안 함. scripts로 재생성한다
 ```
+
+네 사람의 작업이 모두 이 브랜치에 들어와 있다. 개인별 이력은 `jiye`·`yoonsoo`·`youngju`·`juhyeong` 브랜치에 그대로 남아 있다.
 
 주요 스크립트만 짚으면 이렇다.
 
