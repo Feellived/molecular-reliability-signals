@@ -3,7 +3,7 @@
 ### 입력 상태 민감성을 ADMET 예측의 신뢰성 신호로 쓸 수 있는가
 
 MIST · Molecular Input-State sensitiviTy
-TOBIG's 컨퍼런스 2026 · 2026년 9월 27일
+TOBIG's 심화세션 2026 · 2026년 9월 27일
 
 ---
 
