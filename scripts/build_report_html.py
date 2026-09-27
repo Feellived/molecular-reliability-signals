@@ -25,7 +25,7 @@ FIGURE_MAP = {
     "R4": ("R4", "안전·위험 20퍼센트",
            "상위·하위 20퍼센트를 걸러냈을 때 크게 틀린 예측이 얼마나 섞이는가."),
     "R2": ("R2", "물성별 효과",
-           "CYP 여섯 종이 예외 없이 상위권에 몰려 있다."),
+           "CYP 여섯 종은 예외 없이 개선된다. 그 외 16종은 절반만 개선된다."),
     "R3": ("R3", "사전 등록 재현과 확장",
            "결과를 보기 전에 구성을 고정하고 한 번만 평가했다. 체크 표시는 신뢰구간이 0을 배제한 물성."),
 }
@@ -94,7 +94,7 @@ nav = "".join(f'<a href="#{i}">{esc(t)}</a>' for i, t in NAV)
 
 HEAD = """<h1>같은 분자를 다르게 적으면<br>모델이 답을 바꾼다</h1>
 <p class="sub">입력 상태 민감성을 ADMET 예측의 신뢰성 신호로 쓸 수 있는가</p>
-<p class="meta">MIST · Molecular Input-State sensitiviTy · TOBIG's 컨퍼런스 2026 · 2026년 9월 27일</p>
+<p class="meta">MIST · Molecular Input-State sensitiviTy · TOBIG's 심화세션 2026 · 2026년 9월 27일</p>
 <div class="kpis">
   <div class="kpi"><span class="k">+0.0286</span><span class="v">기준 대비 AURC 개선<br>신뢰구간 [+0.0031, +0.0561]</span></div>
   <div class="kpi"><span class="k">6<small>/6</small></span><span class="v">CYP 물성에서<br>모두 개선</span></div>
@@ -200,7 +200,7 @@ footer p {{ color: var(--muted); font-size: 12.5px; margin: 0; }}
 <main class="wrap">
 {body}
 </main>
-<footer><div class="wrap"><p>TOBIG's 컨퍼런스 2026 · MIST · 모든 수치는 산출물과 기계 대조로 확인했다</p></div></footer>
+<footer><div class="wrap"><p>TOBIG's 심화세션 2026 · MIST · 모든 수치는 산출물과 기계 대조로 확인했다</p></div></footer>
 """
 out = SCRATCH / "report.html"
 out.write_text(html, encoding="utf-8")
