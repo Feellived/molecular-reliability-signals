@@ -20,10 +20,10 @@
 
 이 폴더는 Google Drive에 있고 Colab에서 마운트해서 쓴다. 그래서 코드(`scripts/`)·데이터(`data/`)·문서는 이 폴더 안에 두어 Colab이 그대로 읽을 수 있게 한다.
 
-로컬(맥)에서 CLI로 작업할 때 쓰는 Python 가상환경(`.venv`)은 Drive 폴더 밖(`~/.venvs/molecular-reliability-signals`)에 둔다. 가상환경은 파일 수가 많아 Drive 동기화를 심하게 느리게 만들기 때문이다. Colab에서는 이 로컬 venv를 쓰지 않고 노트북 안에서 그때그때 `pip install`한다. 로컬에서 스크립트를 실행할 때는 다음으로 활성화한다.
+로컬(맥)에서 CLI로 작업할 때 쓰는 Python 가상환경(`.venv`)은 Drive 폴더 밖(`~/.venvs/mist`)에 둔다. 가상환경은 파일 수가 많아 Drive 동기화를 심하게 느리게 만들기 때문이다. Colab에서는 이 로컬 venv를 쓰지 않고 노트북 안에서 그때그때 `pip install`한다. 로컬에서 스크립트를 실행할 때는 다음으로 활성화한다.
 
 ```bash
-source ~/.venvs/molecular-reliability-signals/bin/activate
+source ~/.venvs/mist/bin/activate
 ```
 
 ## 문서·자료 구조

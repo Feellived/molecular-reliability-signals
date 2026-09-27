@@ -77,8 +77,11 @@ def fig_ablation() -> None:
 
 def fig_cyp_split() -> None:
     """물성별 B축 효과. CYP 여섯 종에 몰려 있다는 것이 한눈에 보이게."""
-    table = pd.read_csv(PROC / "scores_role4_r2/explore_fp_only.csv").set_index("dataset")
-    effect = (table["기준"] - table["+B 모양"]).sort_values()
+    # 6.1절 표와 같은 값을 그려야 한다. 그 표는 사전 지정 제거 실험에서 나오므로
+    # 1단계 탐색표(explore_fp_only)를 쓰면 기준선이 달라 그림과 표가 어긋난다.
+    table = pd.read_csv(PROC / "scores_role4_r2/expanded_ablation_22/preregistered_ablation.csv"
+                        ).set_index("dataset")
+    effect = (table["aurc__기준(AD+컨포멀)"] - table["aurc__기준+B"]).sort_values()
     colors = [BLUE if d.startswith("cyp") else GRAY for d in effect.index]
     # 막대마다 투명도를 달리하려면 색에 직접 섞어야 한다. alpha는 목록을 받지 않는다.
     fills = [(*matplotlib.colors.to_rgb(c), 1 if c == BLUE else .5) for c in colors]
