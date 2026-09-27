@@ -269,7 +269,7 @@ def score(bundle_root: Path, dataset: str, smiles: str) -> dict:
     pooled_stats = _axis_stats(parent_fp, np.array(pooled), spread_fp)
     cb_pooled = None
     if cb_pred is not None:
-        # 변형이 하나도 없으면 흔들림은 0이다. 지문 쪽(pooled_stats)이 이미 그렇게
+        # 변형이 하나도 없으면 예측 변동은 0이다. 지문 쪽(pooled_stats)이 이미 그렇게
         # 두므로 언어 모델 쪽도 맞춘다. 예전에는 여기서 None이 남아 결합 규칙이
         # 통째로 비었고, 변형이 안 생기는 분자에서 통합 위험도가 사라졌다.
         cb_spread = float(np.std(cb_pred)) or 1.0
@@ -321,7 +321,7 @@ def score(bundle_root: Path, dataset: str, smiles: str) -> dict:
                           bundle.conformal.get("randomization_tag", "mist-fp-aps-v1"), parent)
         prediction_set = {"labels": labels, "size": len(labels),
                           "coverage": 1 - bundle.conformal["alpha"],
-                          "note": "라벨이 둘이면 모델이 어느 쪽인지 가르지 못한 것이다"}
+                          "note": "라벨이 둘이면 모델이 어느 쪽인지 구분하지 못한 것이다"}
 
     conformal_signals = _conformal_signals(
         bundle, dataset, parent_fp, float(cb_pred[0]) if cb_pred is not None else None,
