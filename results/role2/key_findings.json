@@ -1,0 +1,11 @@
+{
+  "classification_fingerprint_primary_mean_roc_auc": 0.8062273786175406,
+  "classification_chemberta_regular_mean_roc_auc": 0.7204614345411346,
+  "classification_chemberta_augmented_mean_roc_auc": 0.7625642740261619,
+  "classification_augmentation_improved_datasets": 9,
+  "classification_augmentation_total_datasets": 13,
+  "regression_augmentation_improved_datasets": 9,
+  "regression_augmentation_total_datasets": 9,
+  "mean_conformal_coverage_classification": 0.9062531357546835,
+  "mean_conformal_coverage_regression": 0.9090227485574928
+}
