@@ -2,7 +2,7 @@
 
 **M**olecular **I**nput-**S**tate sensi**T**ivity · 입력 상태 민감성을 ADMET 예측의 신뢰성 신호로 쓸 수 있는가
 
-[**데모 열기**](https://mist-506994380250.asia-northeast3.run.app) · [**최종 보고서**](docs/최종보고서_MIST.md) · [연구계획서](docs/연구계획서.md)
+[**데모 열기**](https://mist-506994380250.asia-northeast3.run.app) · [**최종 보고서**](docs/최종보고서_MIST.md) · [**상세 기술보고서**](docs/detailed/index.html) · [연구계획서](docs/연구계획서.md)
 
 TOBIG's 심화세션 2026 · 4인 · 2026년 8월 착수
 
