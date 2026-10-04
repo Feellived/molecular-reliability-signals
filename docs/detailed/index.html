@@ -1,0 +1,863 @@
+<title>입력 상태 민감성 기술보고서</title>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;700&family=IBM+Plex+Sans+KR:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+/* 레이아웃: 넓은 화면에서는 왼쪽에 절 번호 레일, 가운데에 본문 한 단. 그림은 종이색 판 위에 올린다. */
+:root{
+  --paper:#fcfcfb; --surface:#f4f3ef; --plate:#fcfcfb;
+  --ink:#16161a; --ink-2:#4a4a46; --ink-3:#86857e;
+  --rule:#e2e1d9; --rule-2:#cfcec4;
+  --accent:#1f5fae; --accent-soft:#eaf1fb; --warn:#c4541f; --warn-soft:#fbeee6;
+  --serif:"Noto Serif KR",ui-serif,Georgia,serif;
+  --sans:"IBM Plex Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --measure:40rem;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#15161a; --surface:#1d1e23; --plate:#f7f7f4;
+  --ink:#ecece8; --ink-2:#b6b6b0; --ink-3:#86867f;
+  --rule:#2b2d33; --rule-2:#3a3d45;
+  --accent:#78abe8; --accent-soft:#1b2838; --warn:#e8884f; --warn-soft:#30231a;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --paper:#15161a; --surface:#1d1e23; --plate:#f7f7f4;
+  --ink:#ecece8; --ink-2:#b6b6b0; --ink-3:#86867f;
+  --rule:#2b2d33; --rule-2:#3a3d45;
+  --accent:#78abe8; --accent-soft:#1b2838; --warn:#e8884f; --warn-soft:#30231a;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-weight:300;
+     font-size:16px;line-height:1.75;-webkit-font-smoothing:antialiased;margin:0;
+     /* 한국어는 어절 단위로 끊어야 한다. 기본값은 글자 사이를 갈라 '신뢰/성'처럼 쪼갠다. */
+     word-break:keep-all;overflow-wrap:break-word}
+.skip{position:absolute;left:-9999px;top:0;background:var(--accent);color:#fff;padding:.6rem 1rem;z-index:99}
+.skip:focus{left:.5rem;top:.5rem}
+a{color:var(--accent);text-underline-offset:.2em;text-decoration-thickness:.07em}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
+
+.wrap{max-width:var(--measure);margin-inline:auto;padding-inline:20px}
+.shell{max-width:76rem;margin-inline:auto;padding-inline:20px}
+
+/* ─ 머리말 ─ */
+header.masthead{border-bottom:1px solid var(--rule);padding-block:4.5rem 2.25rem}
+.eyebrow{font-family:var(--mono);font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;
+         color:var(--ink-3);margin:0 0 1.4rem}
+h1{font-family:var(--serif);font-weight:700;font-size:clamp(2.1rem,5.6vw,3.1rem);line-height:1.2;
+   letter-spacing:-.015em;margin:0 0 .9rem;text-wrap:balance}
+.standfirst{font-size:1.1rem;color:var(--ink-2);margin:0 0 1.6rem;text-wrap:pretty;font-weight:400}
+.byline{font-family:var(--mono);font-size:.76rem;color:var(--ink-3);line-height:1.9;margin:0}
+
+/* ─ 지표 띠 ─ */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--rule);
+      border-block:1px solid var(--rule);margin-block:2.5rem 0}
+.kpi{background:var(--paper);padding:1.15rem 1.1rem}
+.kpi b{display:block;font-family:var(--serif);font-weight:700;font-size:1.65rem;line-height:1.1;
+       color:var(--accent);font-variant-numeric:tabular-nums}
+.kpi span{display:block;font-size:.78rem;color:var(--ink-3);margin-top:.45rem;line-height:1.5}
+@media(max-width:720px){.kpis{grid-template-columns:repeat(2,1fr)}}
+
+/* ─ 본문 ─ */
+main{padding-block:0 5rem}
+section{padding-block:2.6rem}
+section+section{border-top:1px solid var(--rule)}
+h2{font-family:var(--serif);font-weight:700;font-size:1.72rem;line-height:1.3;letter-spacing:-.01em;
+   margin:0 0 1.3rem;text-wrap:balance;scroll-margin-top:1.5rem}
+h2 .num{font-family:var(--mono);font-weight:400;font-size:.82rem;color:var(--accent);
+        display:block;letter-spacing:.1em;margin-bottom:.5rem}
+h3{font-family:var(--sans);font-weight:600;font-size:1.03rem;line-height:1.5;color:var(--ink);
+   margin:2.4rem 0 .85rem;text-wrap:balance}
+h3:first-of-type{margin-top:1.4rem}
+h4{font-family:var(--mono);font-weight:500;font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;
+   color:var(--ink-3);margin:2rem 0 .7rem}
+p{margin:0 0 1.05rem;text-wrap:pretty}
+strong{font-weight:600;color:var(--ink)}
+ul,ol{margin:0 0 1.15rem;padding-left:1.3rem}
+li{margin-bottom:.5rem;text-wrap:pretty}
+li::marker{color:var(--ink-3)}
+code{font-family:var(--mono);font-size:.86em;background:var(--surface);padding:.1em .38em;
+     border-radius:3px;color:var(--ink-2);word-break:break-all}
+
+/* ─ 표 ─ */
+.tw{overflow-x:auto;margin:0 0 1.35rem;border-block:1px solid var(--rule-2)}
+table{border-collapse:collapse;width:100%;font-size:.84rem;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:.56rem .7rem;border-bottom:1px solid var(--rule);vertical-align:top}
+thead th{font-family:var(--mono);font-weight:500;font-size:.7rem;letter-spacing:.06em;
+         text-transform:uppercase;color:var(--ink-3);white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+td.n,th.n{text-align:right;font-family:var(--mono);white-space:nowrap}
+tbody td:first-child{word-break:keep-all}
+tr.hi td{background:var(--accent-soft)}
+tr.hi td:first-child{font-weight:600}
+.pos{color:var(--accent);font-weight:500}
+.neg{color:var(--warn)}
+.dim{color:var(--ink-3)}
+caption{caption-side:bottom;text-align:left;font-size:.78rem;color:var(--ink-3);
+        padding-top:.7rem;line-height:1.6}
+
+/* ─ 그림 ─ */
+figure{margin:1.8rem 0 1.5rem}
+.plate{background:var(--plate);border:1px solid var(--rule-2);border-radius:3px;padding:.75rem}
+figure img{display:block;width:100%;height:auto}
+figcaption{font-size:.8rem;color:var(--ink-3);line-height:1.65;margin-top:.7rem;text-wrap:pretty}
+figcaption b{font-family:var(--mono);font-weight:500;font-size:.72rem;letter-spacing:.08em;
+             text-transform:uppercase;color:var(--ink-2)}
+.wide{max-width:58rem;margin-inline:auto}
+
+/* ─ 강조 블록 ─ */
+.callout{border-left:2px solid var(--accent);background:var(--accent-soft);
+         padding:1rem 1.15rem;margin:1.5rem 0;font-size:.95rem}
+.callout p:last-child{margin-bottom:0}
+.callout.warn{border-left-color:var(--warn);background:var(--warn-soft)}
+.verdict{font-family:var(--serif);font-size:1.12rem;font-weight:600;line-height:1.6;
+         color:var(--ink);margin:0}
+.pre{font-family:var(--mono);font-size:.78rem;background:var(--surface);border:1px solid var(--rule);
+     padding:.85rem 1rem;overflow-x:auto;white-space:pre;line-height:1.8;margin:0 0 1.2rem;color:var(--ink-2)}
+
+/* 판정 꼬리표 */
+.tag{display:inline-block;font-family:var(--mono);font-size:.68rem;letter-spacing:.07em;
+     padding:.18em .5em;border:1px solid currentColor;color:var(--accent);
+     text-transform:uppercase;vertical-align:.1em}
+.tag.no{color:var(--warn)}
+.tag.mid{color:var(--ink-3)}
+
+/* ─ 목차 ─ */
+.toc{background:var(--surface);border-block:1px solid var(--rule);padding-block:1.8rem}
+.toc h4{margin:0 0 .9rem}
+.toc ol{list-style:none;margin:0;padding:0;columns:2;column-gap:2.5rem}
+.toc li{margin-bottom:.38rem;break-inside:avoid;font-size:.86rem}
+.toc a{color:var(--ink-2);text-decoration:none;display:flex;gap:.6rem}
+.toc a:hover{color:var(--accent)}
+.toc .t-n{font-family:var(--mono);font-size:.76rem;color:var(--ink-3);min-width:1.6rem}
+@media(max-width:620px){.toc ol{columns:1}}
+
+footer{border-top:1px solid var(--rule);padding-block:2rem 3rem;font-size:.8rem;color:var(--ink-3)}
+footer p{margin:0 0 .4rem}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<a class="skip" href="#main">본문으로 건너뛰기</a>
+
+<header class="masthead">
+  <div class="wrap">
+    <p class="eyebrow">MIST · 기술 보고서 · 상세판</p>
+    <h1>입력 상태 민감성을 ADMET 예측의 신뢰성 신호로 쓸 수 있는가</h1>
+    <p class="standfirst">같은 분자를 호변이성질체·양성자화 상태·입체 표기만 바꿔 다시 넣었을 때 예측이 변하는 폭을, 그 예측을 믿어도 되는지 판단하는 신호로 쓸 수 있는지 검증한다.</p>
+    <p class="byline">Molecular Input-State sensitiviTy<br>
+       TOBIG&rsquo;s 심화세션 2026 · 4인 · 2026년 10월 4일<br>
+       TDC ADMET 22종 · 독립 데이터 6종 · 사전 등록 3건</p>
+  </div>
+  <div class="shell">
+    <div class="kpis">
+      <div class="kpi"><b>+0.0286</b><span>기준 모형 대비 정규화 AURC 개선. 골격 군집 신뢰구간 [+0.0031, +0.0561]</span></div>
+      <div class="kpi"><b>6/6</b><span>CYP 물성 전부에서 개선. 그 외 16종은 8/16</span></div>
+      <div class="kpi"><b>2/2</b><span>사전 등록한 새 데이터 두 종에서 재현 성공</span></div>
+      <div class="kpi"><b>287,819</b><span>생성하고 채점한 분자 변형</span></div>
+    </div>
+  </div>
+</header>
+
+<nav class="toc" aria-label="목차">
+  <div class="shell">
+    <h4>차례</h4>
+    <ol>
+      <li><a href="#s0"><span class="t-n">&mdash;</span><span>요약</span></a></li>
+      <li><a href="#s1"><span class="t-n">1</span><span>문제</span></a></li>
+      <li><a href="#s2"><span class="t-n">2</span><span>관련 연구</span></a></li>
+      <li><a href="#s3"><span class="t-n">3</span><span>정식화와 사전 지정 가설</span></a></li>
+      <li><a href="#s4"><span class="t-n">4</span><span>방법</span></a></li>
+      <li><a href="#s5"><span class="t-n">5</span><span>평가 프로토콜</span></a></li>
+      <li><a href="#s6"><span class="t-n">6</span><span>RQ1 — 신호의 존재와 성질</span></a></li>
+      <li><a href="#s7"><span class="t-n">7</span><span>RQ2 — 기존 신호와의 비중복성</span></a></li>
+      <li><a href="#s8"><span class="t-n">8</span><span>RQ3 — 추가 가치</span></a></li>
+      <li><a href="#s9"><span class="t-n">9</span><span>효과는 어디에 있는가</span></a></li>
+      <li><a href="#s10"><span class="t-n">10</span><span>왜 기존 신호보다 약한가</span></a></li>
+      <li><a href="#s11"><span class="t-n">11</span><span>사전 등록 검증 3건</span></a></li>
+      <li><a href="#s12"><span class="t-n">12</span><span>효과가 없었던 시도</span></a></li>
+      <li><a href="#s13"><span class="t-n">13</span><span>데모</span></a></li>
+      <li><a href="#s14"><span class="t-n">14</span><span>주장의 범위</span></a></li>
+      <li><a href="#s15"><span class="t-n">15</span><span>한계</span></a></li>
+      <li><a href="#s16"><span class="t-n">16</span><span>남은 과제</span></a></li>
+      <li><a href="#a1"><span class="t-n">A</span><span>물성 22종 전체 결과표</span></a></li>
+      <li><a href="#a2"><span class="t-n">B</span><span>변형 허용성 판정표</span></a></li>
+      <li><a href="#a3"><span class="t-n">C</span><span>사전 등록 기록과 커밋 시각</span></a></li>
+      <li><a href="#a4"><span class="t-n">D</span><span>용어 해설</span></a></li>
+      <li><a href="#a5"><span class="t-n">E</span><span>참고문헌</span></a></li>
+      <li><a href="#a6"><span class="t-n">F</span><span>산출물·그림·역할</span></a></li>
+    </ol>
+  </div>
+</nav>
+
+<main id="main">
+
+<section id="s0"><div class="wrap">
+<h2><span class="num">요약</span>세 줄로 줄이면</h2>
+
+<p>ADMET 예측 모델은 평균 정확도로 평가받는다. 그런데 신약 탐색 현장에서 필요한 것은 눈앞의 분자 하나에 대한 예측을 실험으로 검증할 가치가 있는지다. 지금 쓰이는 신뢰성 지표 — 적용가능도메인, 컨포멀 불확실성, 모델 불일치 — 는 모두 <strong>모델과 학습 데이터</strong>를 들여다본다.</p>
+
+<p>이 연구는 <strong>입력</strong>을 들여다보는 신호를 제안하고 검증한다. 같은 화합물도 데이터베이스마다 다른 형태로 등록된다. 중성형과 이온형, 서로 다른 호변이성질체, 입체 표기가 있는 것과 없는 것이 모두 같은 약이다. 그 형태를 바꿔 넣었을 때 예측이 크게 달라진다면, 애초에 어느 형태를 넣었느냐가 답을 가른다는 뜻이다.</p>
+
+<div class="callout"><p class="verdict">입력 상태 민감성은 CYP 억제 예측에서 기존 신호에 더해 위험 선별을 개선한다. 범용 신뢰성 지표로 쓰기에는 근거가 부족하다.</p></div>
+
+<h3>검증 결과</h3>
+<ul>
+<li><strong>사전 지정한 1차 가설이 지지된다.</strong> 계획서가 정한 기준 모형(적용가능도메인 + 컨포멀)에 B축을 더하면 정규화 AURC가 평균 0.0286 개선되고, 골격 군집 부트스트랩 95퍼센트 신뢰구간 [+0.0031, +0.0561]이 0을 배제한다. 22종 중 14종에서 개선됐다.</li>
+<li><strong>2차 가설은 지지되지 않는다.</strong> 표현 불안정성 A를 더한 효과는 +0.0003으로 사실상 0이고 신뢰구간이 0을 포함한다.</li>
+<li><strong>효과가 CYP 물성에 집중된다.</strong> CYP 6종 평균 +0.080(6종 모두 개선), 그 외 16종 평균 +0.009(8/16). 다중 비교를 BH로 보정한 뒤 개별 물성 수준에서 유의한 것은 CYP 억제 3종뿐이다.</li>
+<li><strong>이 집중이 새 데이터에서 재현됐다.</strong> 22종에 쓰이지 않은 CYP1A2·CYP2C19에서, 구성과 판정 기준을 커밋한 뒤 한 번만 평가해 +0.054와 +0.089를 얻었고 두 물성 모두 신뢰구간이 0을 배제했다.</li>
+<li><strong>CYP 밖으로 확장되는지는 확인하지 못했다.</strong> 같은 화합물을 같은 조건으로 측정한 Biogen 데이터에서 CYP 관련 물성이 대조 물성보다 낫지 않았다.</li>
+<li><strong>CYP에서 잘 되는 이유는 설명하지 못했다.</strong> 사전 등록한 설명 가설(물성의 이온화 민감도)은 기각됐다.</li>
+</ul>
+
+<p>이 문서는 간결판 보고서의 상세판이다. 방법의 세부 설정, 물성 22종 각각의 수치, 실패한 시도의 내역, 사전 등록 문서의 판정 기준을 모두 싣는다.</p>
+</div></section>
+
+<section id="s1"><div class="wrap">
+<h2><span class="num">1</span>문제</h2>
+
+<h3>1.1 평균 정확도와 개별 신뢰의 간극</h3>
+<p>가상 탐색에서 모델은 수만 개 분자에 점수를 매긴다. 이때 &ldquo;이 모델의 R&sup2;가 0.7이다&rdquo;라는 정보로는 지금 눈앞의 분자 하나를 실험으로 검증할지 말지 정할 수 없다. 그 판단에는 <strong>예측별 신뢰도</strong>가 필요하다.</p>
+
+<h3>1.2 기존 신호는 모두 모델 쪽에서 나온다</h3>
+<div class="tw"><table>
+<thead><tr><th>신호</th><th>무엇을 보나</th><th>산출 원천</th></tr></thead>
+<tbody>
+<tr><td>적용가능도메인</td><td>이 분자가 학습 데이터와 얼마나 닮았나</td><td class="dim">학습 데이터 분포</td></tr>
+<tr><td>컨포멀 불확실성</td><td>모델이 내놓는 예측 구간이 얼마나 넓은가</td><td class="dim">모델 출력</td></tr>
+<tr><td>모델 불일치</td><td>서로 다른 모델이 같은 분자에 다른 답을 내는가</td><td class="dim">모델 출력</td></tr>
+</tbody></table></div>
+
+<p>세 신호는 서로 상당 부분 겹친다고 보고되어 왔다. QUAD(2026)는 세 신호를 단일 점수로 통합했을 때 가장 좋은 단일 신호보다 오히려 나빴다고 결론지었다(무작위 분할에서 앙상블 불확실성 단독 0.366 대 통합 0.303). 따라서 모델 쪽 신호를 더 많이 결합하는 방향은 유망해 보이지 않는다.</p>
+
+<h3>1.3 입력 쪽에 남은 미탐색 영역</h3>
+<p>화학 데이터베이스는 같은 약을 여러 형태로 등록한다. 어느 형태가 저장되는지는 등록 파이프라인의 선택에 달려 있고, 모델을 쓰는 사람은 그 선택을 통제하지 못한다. 주요 공개 데이터베이스들의 표준화 파이프라인이 서로 다른 결과를 낸다는 것은 이미 보고된 사실이다(canSAR 2022).</p>
+<p><strong>그 형태를 바꿨을 때 예측이 크게 달라진다면, 애초에 어느 형태를 넣었느냐가 답을 가른다.</strong> 이것이 이 연구가 제안하는 신호다.</p>
+
+<h3>1.4 기여</h3>
+<p>새로운 예측 모델도, 새로운 불확실성 이론도, 신호 통합 방법도 아니다. 기여는 두 가지다. 첫째, 입력 쪽에서 산출되는 신호를 분자 단위로 정량화했다. 둘째, 기존 적용가능도메인·컨포멀 기준선 대비 추가 가치를 골격 기반 분할 조건에서 사전 지정 가설로 검정하고, 그 결과가 어느 물성군에 한정되는지를 독립 데이터로 확인했다.</p>
+</div></section>
+
+<section id="s2"><div class="wrap">
+<h2><span class="num">2</span>관련 연구</h2>
+
+<h3>2.1 모델 기반 신호의 통합 시도</h3>
+<p>QUAD(2026)는 앙상블 불확실성, 모델 불일치, 적용가능도메인 위험을 분자 단위 신뢰도 점수로 통합하는 사후 프레임워크를 제안했다. Random Forest와 ECFP4 지문으로 두 생물활성 벤치마크를 무작위 분할과 Bemis-Murcko 골격 분할 양쪽에서 평가하고 구성 요소별 제거 실험도 수행했다. 결과는 통합의 유효성을 지지하지 않았다. 골격 외삽 조건에서는 한 데이터셋의 통합 점수 상관계수가 0.071까지 떨어졌다. 저자들은 효과가 데이터셋 특성에 강하게 의존한다고 결론지었다.</p>
+
+<h3>2.2 적용가능도메인과 컨포멀의 중복성</h3>
+<p>ACS Omega(2026)는 k-최근접 이웃 기반 적용가능도메인 지표가 컨포멀 불확실성 추정치를 언제 신뢰하기 어려운지 구분해 준다는 것을 시간 분할과 군집 분할에서 보였다. Chemical Research in Toxicology(2026)는 컨포멀 예측을 100개 이상의 QSAR 모델에 보정 계층으로 적용하고, 컨포멀 효율 지표(예측 구간 폭, 단일 라벨 비율)가 적용가능도메인 지표와 강하게 상관한다고 보고했다. 저자들은 컨포멀 예측이 적용가능도메인 휴리스틱이 근사하던 관계를 통계적으로 정식화한 것이라고 해석했다.</p>
+<p>이 두 결과는 양방향으로 작용한다. 기준선을 정의하는 동시에, 두 신호가 상당 부분 같은 정보를 담고 있다면 <strong>산출 원천이 다른 제3의 신호</strong>가 갖는 가치가 그만큼 커진다.</p>
+
+<h3>2.3 표현 등가 변동을 이용한 신뢰도 추정</h3>
+<p>등가 SMILES 표기 간 예측 변동을 신뢰도로 쓰는 접근은 Maxsmi(2021)에서 제시됐다. 무작위화 SMILES를 학습 증강에 쓰면서, 추론 시점에 여러 등가 표기를 넣어 얻은 예측 분산을 신뢰도 추정에 활용했다. 따라서 이 연구의 표현 불안정성 A는 새로운 개념이 아니며, 그래서 2차 가설로 두었다.</p>
+<p>다만 Maxsmi는 증강 학습이 표현 불안정성을 얼마나 줄이는지, 증강 이후에도 잔존하는 불안정성이 오차 신호로 기능하는지는 검증하지 않았다.</p>
+
+<h3>2.4 화합물 등록과 표준화</h3>
+<p>canSAR 등록 파이프라인(2022)은 구조 검사, 표준화, 정준 호변이성질체 생성, 염 제거, 추상 구조 생성의 다섯 단계로 화합물 계층을 구성한다. <strong>이 계층 구조가 B를 세 축으로 분리한 근거다.</strong> Genentech의 구조 정규화 연구(2012)는 외부 유입 화합물의 동일성 판정에 입체화학 불확실성과 호변이성질체를 함께 처리해야 한다고 기술했다. 구조 큐레이션 연구(2010)는 한 대규모 데이터셋에서 약 10퍼센트의 화합물이 혼합물이거나 염 형태여서 계산 전 처리가 필요하다고 보고했다.</p>
+<p>이들은 표준화를 <em>올바르게 수행하는 방법</em>을 다룬다. 표준화 선택에 대한 분자별 민감도를 측정하거나 그것을 신뢰성 신호로 쓴 연구는 아니다. 호변이성질체·양성자화 상태의 다중성을 다룬 연구들도 주로 비율 예측이거나, 도킹에서 상태 열거가 농축률을 높이는지 검토한 것이다(2009). 상태 열거를 <em>예측 성능 개선 수단</em>으로 다루었지, 상태에 따른 예측 변동을 <em>불확실성 신호</em>로 다루지 않았다.</p>
+
+<h3>2.5 연구 공백</h3>
+<p>새 신뢰성 신호를 제안하고 보류 실험으로 기존 신호 대비 우월성을 보이는 형식은 확립되어 있다. AUINet(2026)은 원자 단위 불확실성이 분자 단위 불확실성보다 나은 오차 신호임을 보였다. 이 연구도 같은 검증 형식을 따르되, AUINet의 신호가 몬테카를로 드롭아웃 기반으로 여전히 모델 쪽에서 산출된다는 점에서 구분된다.</p>
+<p>확인한 범위에서, 호변이성질체·양성자화·염 형태·입체 표기의 변동을 분자 단위 신뢰성 신호로 정량화하고 기존 기준선 대비 추가 가치를 측정한 연구는 발견되지 않았다. 검색은 Europe PMC, CrossRef, arXiv, Semantic Scholar를 대상으로 했다.</p>
+</div></section>
+
+<section id="s3"><div class="wrap">
+<h2><span class="num">3</span>정식화와 사전 지정 가설</h2>
+
+<h3>3.1 두 층 분해</h3>
+<div class="tw"><table>
+<thead><tr><th>축</th><th>정의</th><th>0이 아니면</th><th>성립 조건</th></tr></thead>
+<tbody>
+<tr><td><strong>A · 표현 불안정성</strong></td><td>화학적 상태를 고정한 채 등가 SMILES 표기만 바꿨을 때의 예측 변동</td><td class="dim">모델이 구조가 아니라 문자열 형태에 의존해 학습했다는 뜻. 원리상 0이어야 한다</td><td class="dim">SMILES를 직접 읽는 모델에서만</td></tr>
+<tr><td><strong>B · 입력 상태 민감성</strong></td><td>화학적으로 허용되는 범위에서 분자의 상태를 바꿨을 때의 예측 변동</td><td class="dim">분자 그래프가 실제로 달라지므로 변동 자체는 오류가 아니다. 문제는 어느 상태가 등록되었는지를 사용자가 통제하지 못한다는 점</td><td class="dim">모든 모델에서</td></tr>
+</tbody></table></div>
+
+<p>B는 발생 기전과 통제 가능성이 달라 세 축으로 분리한다. <strong>B1 미소상태</strong>(호변이성질체·양성자화)는 용액 환경에 의존하는 물리적 평형에서, <strong>B2 등록 형태</strong>(원본 대 탈염)는 등록 관행의 차이에서, <strong>B3 입체 표기</strong>(유지 대 제거)는 실험 데이터의 정보 결손에서 비롯된다.</p>
+
+<h3>3.2 계층적 분산 분해</h3>
+<p>한 분자에 대해 여러 화학적 상태를 만들고, 각 상태 안에서 다시 여러 등가 SMILES를 만든다. 상태와 표기의 이중 중첩 구조에서 두 축은 이렇게 정의된다.</p>
+<div class="pre">A&sup2; = 상태 내부에서 등가 SMILES 사이의 예측 분산을, 상태들에 대해 평균
+B&sup2; = 각 상태의 평균 예측값을 먼저 구한 뒤, 그 상태 평균값들 사이의 분산</div>
+<p>변형 개수가 상태 간에 균형을 이루면 전체 분산은 A&sup2; + B&sup2;로 정확히 분해된다. 실제로는 분자마다 생성 가능한 상태 수가 달라 이 조건이 항상 성립하지는 않는다. 주 분석은 이 정식 정의 대신 축별 백분위의 최댓값을 쓰는 근사를 사용하고(4.8절), 정식 정의는 민감도 분석으로 함께 보고한다.</p>
+
+<h3>3.3 연구 질문</h3>
+<ul>
+<li><strong>RQ1 (분해와 특성화)</strong> — 등가 SMILES 변형과 상태 변형에 대해 ADMET 예측은 어느 정도 변동하며, 그 크기는 물성 종류·모델의 표현 방식·학습 골격으로부터의 거리에 따라 어떻게 달라지는가.</li>
+<li><strong>RQ2 (비중복성)</strong> — A와 B는 적용가능도메인 및 컨포멀과 어느 정도 중복되는가. 이 질문은 정답 라벨 없이 답할 수 있다.</li>
+<li><strong>RQ3 (추가 가치)</strong> — 기존 신호에 A와 B를 더했을 때 골격 기반 시험 집합에서 오차 탐지와 선택적 예측이 개선되는가.</li>
+</ul>
+
+<h3>3.4 사전 지정 가설</h3>
+<p>RQ3이 주 분석이며, 두 가설을 데이터 관찰 전에 지정했다.</p>
+<div class="callout">
+<p><strong>1차 가설.</strong> 적용가능도메인과 표본 적응형 컨포멀만으로 구성한 기준 모형에 입력 상태 민감성 B를 추가하면, 골격 기반 시험 집합의 정규화 AURC가 감소한다.</p>
+<p><strong>2차 가설.</strong> 동일 기준 모형에 표현 불안정성 A를 추가하면 정규화 AURC가 감소한다. SMILES 언어 모델이 확보된 물성에 한정해 검정한다.</p>
+</div>
+<p>두 가설을 분리한 이유는 세 가지다. A는 SMILES를 직접 읽는 모델이 있어야만 0이 아닌 값을 갖는 성립 조건을 가진다. A는 선행 연구에서 이미 신뢰도 추정에 쓰인 개념이므로 이 연구의 고유한 주장은 B에 있다. 둘을 묶어 검정하면 A쪽의 실행상 문제가 B에 대한 결론까지 무효화한다.</p>
+</div></section>
+
+<section id="s4"><div class="wrap">
+<h2><span class="num">4</span>방법</h2>
+
+<h3>4.1 데이터</h3>
+<p>Therapeutics Data Commons의 ADMET Benchmark Group을 쓴다. 회귀 9종과 분류 13종, 합계 22종이며 표준 골격 기반 분할이 함께 제공된다. 22종 전체를 같은 깊이로 분석한다. 당초 일부 물성만 심층 분석하는 두 층 설계였으나 2026년 8월 20일 철회했다. 물성별 편차 자체가 이 연구의 관심사이고, 대상을 좁히면 신호가 어떤 물성에서 작동하고 어떤 물성에서 작동하지 않는지를 규명할 수 없기 때문이다. 물성 수가 늘어남에 따른 다중 비교는 5.3절 절차로 통제한다.</p>
+
+<h3>4.2 물성별 변형 허용성</h3>
+<p>모든 변형이 모든 물성에 유의미하지는 않다. logD처럼 정의에 pH가 들어간 물성에서는 양성자화 변형이 본질적이다. 반면 여러 출처를 통합하면서 측정 조건이 보존되지 않은 물성에서는 같은 변형이 잡음이다.</p>
+<p>담당1이 각 물성의 TDC 문서와 원 논문의 실험 조건 기술을 읽어 축별 허용성을 <strong>허용 / 주의 / 충돌</strong> 세 등급으로 판정하고, <strong>결과를 보기 전에 표를 확정했다</strong>. 주 분석은 &ldquo;허용&rdquo; 등급만 사용한다. 전체 판정은 부록 B에 있다.</p>
+<div class="tw"><table>
+<thead><tr><th>축</th><th class="n">허용</th><th class="n">주의</th><th class="n">충돌</th><th>주 분석 사용</th></tr></thead>
+<tbody>
+<tr><td>B1 호변이성질체</td><td class="n">21</td><td class="n">1</td><td class="n">0</td><td>21종</td></tr>
+<tr><td>B1 양성자화</td><td class="n">12</td><td class="n">10</td><td class="n">0</td><td>12종</td></tr>
+<tr><td>B2 염 형태</td><td class="n">17</td><td class="n">3</td><td class="n">2</td><td class="neg">0종 — 사전 선별에서 전량 탈락</td></tr>
+<tr><td>B3 입체 표기</td><td class="n">22</td><td class="n">0</td><td class="n">0</td><td>19종</td></tr>
+</tbody></table>
+<caption>허용성 판정은 결과 관찰 전에 확정했다. B2는 허용 판정을 받았으나 4.4절 사전 선별에서 22종 모두 변형 가능 분자가 10퍼센트에 미달해 생성조차 하지 않았다. B3는 solubility_aqsoldb·ld50_zhu·dili 세 종이 같은 이유로 빠져 19종이다.</caption>
+</div>
+
+<h3>4.3 변형 생성 절차</h3>
+<ul>
+<li><strong>A (등가 SMILES)</strong> — 무작위화 SMILES 생성, 분자당 10개로 고정.</li>
+<li><strong>B1 미소상태</strong> — 호변이성질체는 RDKit <code>TautomerEnumerator</code>(최대 20개), 양성자화는 dimorphite-dl 2.0.2로 pH 6.4~8.4 창에서 열거. 분자당 상한을 두고 결과를 디스크에 캐시한다.</li>
+<li><strong>B2 등록 형태</strong> — 원본과 탈염 형태만 비교한다. 원자료에 없는 짝이온을 임의로 붙이지 않는다.</li>
+<li><strong>B3 입체 표기</strong> — 입체 정보 유지 형태와 제거 형태만 비교한다. 서로 다른 입체 이성질체 사이의 변환은 다루지 않는다.</li>
+</ul>
+<p>생성된 모든 변형은 화학적 타당성 검사를 통과한 것만 쓰고, 허용성 표로 필터링한다. 최종 변형 수는 287,819개다.</p>
+
+<h3>4.4 변형 가능성 사전 선별</h3>
+<p>공개 벤치마크의 SMILES는 이미 표준화를 거친 경우가 많아, 특정 축에 대해 변형 가능한 분자가 거의 없을 수 있다. 본 실험 착수 전에 축별로 변형 가능 분자의 비율을 세고, <strong>10퍼센트 미만인 축은 그 물성의 주 분석에서 제외</strong>했다. 이 기준으로 B2가 22종 전부에서 탈락했다. 계획서가 예고한 &ldquo;표준화의 결과로 축이 소멸할 가능성&rdquo;이 실제로 일어난 사례다.</p>
+
+<h3>4.5 예측 모델</h3>
+<div class="tw"><table>
+<thead><tr><th>모델</th><th>역할</th><th>구성</th></tr></thead>
+<tbody>
+<tr><td>Morgan 지문 + XGBoost</td><td>22종 기본 예측기</td><td class="dim">5시드</td></tr>
+<tr><td>Morgan 지문 + Random Forest</td><td>앙상블 불확실성, 트리 계열 기준선</td><td class="dim">5시드</td></tr>
+<tr><td>ChemBERTa 미세조정</td><td>A축의 유일한 측정 대상, 모델 불일치의 원천</td><td class="dim"><code>DeepChem/ChemBERTa-10M-MTR</code>, 정규 SMILES판과 무작위화 증강판 2종</td></tr>
+</tbody></table></div>
+<p>Morgan 지문은 분자 그래프에서 계산되므로 지문 모델에서 A는 원리상 정확히 0이다. 따라서 SMILES를 직접 읽는 모델은 선택 사항이 아니라 2차 가설 검정의 필요조건이다.</p>
+
+<h3>4.6 기준선 신뢰성 신호</h3>
+<p>넘어서야 할 기준선은 적용가능도메인과 표본 적응형 컨포멀 둘이다.</p>
+<ul>
+<li><strong>적용가능도메인 2종</strong> — Morgan 지문 공간의 k-최근접 이웃 유사도, 같은 공간의 국소 밀도. 두 정의를 모두 지문 공간에서 산출한 것은 의도적이다. 학습된 임베딩 거리를 쓰면 그 임베딩을 제공하는 모델이 사실상 ChemBERTa가 되는데, A축과 모델 불일치가 이미 그 모델에 의존한다. 기준선까지 같은 구성 요소에 묶으면 해당 모델을 확보하지 못했을 때 비교 대상 자체가 절반 사라진다.</li>
+<li><strong>컨포멀</strong> — 회귀는 앙상블 분산으로 조정한 적응형 구간, 분류는 APS 비적합도 점수와 예측 집합 크기.</li>
+<li><strong>모델 불일치</strong> — 지문 모델과 ChemBERTa처럼 <em>분자 표현 방식이 다른</em> 모델 사이의 예측 차이. 같은 특징을 쓰는 두 트리 모델의 차이는 앙상블 분산과 실질적으로 같은 정보라 별도 신호로 보지 않는다. 계획서가 정한 기준 모형에는 포함되지 않지만, 참고 비교로 항상 함께 보고한다.</li>
+</ul>
+
+<h3>4.7 데이터 분할 규율</h3>
+<div class="pre">부모 분자 확정 → 중복 제거 → 골격 기준 분할 → 그 다음에 변형 생성</div>
+<p>세 번째 조건이 핵심이다. 변형을 먼저 만들면 같은 화합물의 다른 표기가 학습과 시험에 나뉘어 배정되어 정보 누출이 생긴다. 변형은 원본 행의 분할을 그대로 물려받는다.</p>
+<p>분할은 네 역할로 나눈다. <strong>학습</strong>, <strong>컨포멀 보정</strong>(예측 구간 폭 결정), <strong>메타 보정</strong>(신호 결합 규칙과 임계값 결정), <strong>최종 시험</strong>(골격 기반, 단 한 번만 사용). 표본이 작은 물성에서는 학습·검증 영역 안에서 골격 그룹 단위 교차적합을 하고 폴드 외 예측으로 메타 모델을 학습한다. 결합 규칙은 최종 시험 집합에 한 번만 적용한다.</p>
+
+<h3>4.8 신호 산출과 정규화</h3>
+<p>물성마다 단위와 분포가 달라 예측값을 그대로 비교할 수 없다. 회귀는 보정 집합 라벨의 사분위 범위로 나누어 표준화하고, 분류는 확률을 양 끝에서 절단한 뒤 로짓으로 변환한다.</p>
+<p>B1과 B3는 변형의 개수와 강도가 서로 달라 원값을 직접 비교하거나 최댓값을 취할 수 없다. <strong>보정 집합에서 각 축의 분포를 구해 백분위로 변환한 뒤, 그 백분위의 최댓값을 통합 B로 쓴다.</strong> 백분위 기준과 모든 임계값은 시험 집합이 아니라 보정 집합에서 고정한다.</p>
+</div></section>
+
+<section id="s5"><div class="wrap">
+<h2><span class="num">5</span>평가 프로토콜</h2>
+
+<h3>5.1 지표</h3>
+<p><strong>정규화 AURC</strong>가 판정 지표다. 신뢰도 순서대로 예측을 받아들이며 누적 오차를 재고, 무작위 보류를 1, 이상적 보류(오라클)를 0으로 정규화한다. 낮을수록 좋다. 기준선 없이 &ldquo;보류 비율을 높이니 잔여 오차가 줄었다&rdquo;는 관찰은 매우 약한 신호에서도 거의 항상 성립하므로 그 자체로는 근거가 되지 못한다.</p>
+<p><strong>오차 탐지 AUPRC</strong>를 함께 보고한다. 큰 오차 사례가 소수라 클래스 불균형에 강건한 지표가 적절하다. 큰 오차의 정의는 분류에서는 오분류, 회귀에서는 절대 오차 상위 20퍼센트다.</p>
+
+<h3>5.2 제거 실험</h3>
+<p>신호를 순차적으로 더하며 한계 기여도를 잰다. 각 구성은 물성 안 백분위 신호를 메타 분할에서 오차 순위에 대해 적합한 Ridge(alpha 1.0)로 결합하고, 시험 분할에서 정규화 AURC를 계산한다.</p>
+<ol>
+<li>적용가능도메인 단독</li>
+<li>적용가능도메인 + 컨포멀 &mdash; <strong>계획서가 정한 기준 모형</strong></li>
+<li>기준 모형 + 모델 불일치</li>
+<li>기준 모형 + A &mdash; <strong>2차 가설</strong></li>
+<li>기준 모형 + B &mdash; <strong>1차 가설</strong></li>
+<li>전체</li>
+</ol>
+
+<h3>5.3 통계적 추론</h3>
+<ul>
+<li>p값 중심 서술을 지양하고 물성별 효과 크기와 신뢰구간을 보고한다.</li>
+<li>신뢰구간은 <strong>골격 군집 단위</strong> 부트스트랩으로 산출한다. 같은 골격의 분자들은 독립이 아니기 때문이다. 복원 추출 2,000회, 시드 <code>20260926</code>, 재표집 시 결합 규칙은 다시 적합하지 않는다.</li>
+<li>다중 비교는 Benjamini-Hochberg로 통제하되, 사전 지정한 1차 가설에는 적용하지 않는다.</li>
+</ul>
+<div class="callout warn"><p>골격 단위 재표집은 분자 단위보다 구간을 넓힌다. 실제로 1차 가설의 신뢰구간은 분자 단위 [+0.0086, +0.0532]에서 골격 단위 [+0.0031, +0.0561]로 넓어졌다. <strong>더 보수적인 쪽을 판정에 쓴다.</strong></p></div>
+</div></section>
+
+<section id="s6"><div class="wrap">
+<h2><span class="num">6</span>RQ1 — 신호의 존재와 성질</h2>
+
+<h3>6.1 예측 변동이 큰 분자가 실제로 더 틀린다</h3>
+<p>예측 변동 상위 25퍼센트 분자는 하위 25퍼센트보다 <strong>1.25배</strong> 더 크게 틀린다. 신호가 존재한다는 최소 조건은 만족한다. 다만 이 비율 자체는 약한 근거다. 기존 신호도 같은 조건을 만족하므로, 판정은 기준선 대비 추가 가치(8절)로 한다.</p>
+
+<figure>
+  <div class="plate"><img src="figures/03_quantile_error.png" alt="예측 변동 분위별 평균 절대 오차 막대그래프"></div>
+  <figcaption><b>그림 1</b> · 예측 변동 분위별 오차. 변동이 큰 분위일수록 실제 오차가 크다. 기울기가 완만한 것이 이 신호의 한계이기도 하다.</figcaption>
+</figure>
+
+<h3>6.2 학습 데이터에서 멀어질수록 B는 오히려 작아진다</h3>
+<p>&ldquo;B축은 결국 학습 데이터와의 거리를 재는 것 아니냐&rdquo;는 반론에 대한 답이다. 골격 거리 4분위로 나눠 보면 오차는 커지는데 축 값은 <strong>줄어든다</strong>.</p>
+<div class="tw"><table>
+<thead><tr><th>축</th><th class="n">가까움</th><th class="n">&rarr;</th><th class="n">&rarr;</th><th class="n">멂</th></tr></thead>
+<tbody>
+<tr><td>통합 B (조건부)</td><td class="n">0.553</td><td class="n">0.510</td><td class="n">0.482</td><td class="n"><strong>0.472</strong></td></tr>
+<tr><td>표현 불안정성 A</td><td class="n">0.526</td><td class="n">0.508</td><td class="n">0.496</td><td class="n"><strong>0.487</strong></td></tr>
+<tr><td>B1 양성자화</td><td class="n">0.536</td><td class="n">0.542</td><td class="n">0.487</td><td class="n"><strong>0.452</strong></td></tr>
+</tbody></table>
+<caption>값은 축의 백분위 평균이다. 적용가능도메인이라면 거리가 멀수록 커져야 한다.</caption>
+</div>
+<figure>
+  <div class="plate"><img src="figures/09_scaffold_distance.png" alt="골격 거리 4분위별 축 크기 변화"></div>
+  <figcaption><b>그림 2</b> · 골격 거리별 축 크기. 세 축 모두 거리와 반대 방향으로 움직인다. 적용가능도메인과 같은 것을 재고 있지 않다는 직접적인 증거다.</figcaption>
+</figure>
+</div></section>
+
+<section id="s7"><div class="wrap">
+<h2><span class="num">7</span>RQ2 — 기존 신호와의 비중복성</h2>
+<p>이 절의 분석은 정답 라벨을 쓰지 않는다.</p>
+
+<h3>7.1 순위 상관이 거의 0이다</h3>
+<div class="tw"><table>
+<thead><tr><th>B축과의 순위 상관</th><th class="n">값</th></tr></thead>
+<tbody>
+<tr><td>적용가능도메인</td><td class="n"><strong>&minus;0.09</strong></td></tr>
+<tr><td>컨포멀</td><td class="n">+0.11</td></tr>
+<tr><td>모델 불일치</td><td class="n">+0.03</td></tr>
+</tbody></table></div>
+
+<h3>7.2 상위 10퍼센트 집합도 겹치지 않는다</h3>
+<p>가장 위험하다고 지목한 상위 10퍼센트 집합을 비교하면 자카드 지수가 <strong>0.065</strong>다. 참고로 기존 신호들끼리도 0.076으로 낮다.</p>
+<figure>
+  <div class="plate"><img src="figures/05_overlap.png" alt="신호 간 상위 집합 겹침 구조"></div>
+  <figcaption><b>그림 3</b> · 신호 겹침 구조. 우리 축과 기존 신호가 상위 집합에서 거의 겹치지 않는다.</figcaption>
+</figure>
+
+<h3>7.3 기존 신호를 통제해도 정보가 남는다</h3>
+<p>기존 신호 네 개를 통제한 뒤에도 B와 오차의 부분 상관이 <strong>22종 중 14종에서 양수</strong>로 남는다. CYP에서는 0.17, 그 외에서는 0.03이다. 이미 여기서 CYP 집중의 조짐이 보인다.</p>
+<div class="callout"><p><strong>RQ2의 답.</strong> B축은 기존 신호와 거의 겹치지 않고, 기존 신호가 잡지 못하는 오차 정보를 일부 담고 있다.</p></div>
+</div></section>
+
+<section id="s8"><div class="wrap">
+<h2><span class="num">8</span>RQ3 — 추가 가치</h2>
+
+<h3>8.1 사전 지정한 1차 가설은 지지된다</h3>
+<div class="tw"><table>
+<thead><tr><th>구성</th><th class="n">정규화 AURC</th><th class="n">기준 대비 개선</th><th class="n">95% 신뢰구간</th><th class="n">개선 물성</th><th class="n">AUPRC</th></tr></thead>
+<tbody>
+<tr><td>적용가능도메인 단독</td><td class="n">0.7571</td><td class="n neg">&minus;0.1578</td><td class="n dim">&mdash;</td><td class="n">3/22</td><td class="n">0.2812</td></tr>
+<tr><td>기준 (AD + 컨포멀)</td><td class="n">0.5993</td><td class="n dim">기준</td><td class="n dim">&mdash;</td><td class="n dim">&mdash;</td><td class="n">0.3261</td></tr>
+<tr><td>기준 + 모델 불일치</td><td class="n">0.5276</td><td class="n pos">+0.0717</td><td class="n">[+0.0156, +0.1285]</td><td class="n">17/22</td><td class="n">0.3721</td></tr>
+<tr><td>기준 + A축</td><td class="n">0.5990</td><td class="n">+0.0003</td><td class="n">[&minus;0.0310, +0.0273]</td><td class="n">14/22</td><td class="n">0.3355</td></tr>
+<tr class="hi"><td>기준 + B축</td><td class="n">0.5707</td><td class="n pos">+0.0286</td><td class="n">[+0.0088, +0.0533]</td><td class="n">14/22</td><td class="n">0.3319</td></tr>
+<tr><td>기준 + A축 + B축</td><td class="n">0.5755</td><td class="n">+0.0238</td><td class="n">[&minus;0.0074, +0.0495]</td><td class="n">17/22</td><td class="n">0.3378</td></tr>
+<tr><td>전체</td><td class="n">0.5147</td><td class="n pos">+0.0846</td><td class="n">[+0.0374, +0.1350]</td><td class="n">18/22</td><td class="n">0.3814</td></tr>
+</tbody></table>
+<caption>22종 평균. 신뢰구간은 물성 단위 부트스트랩이다. 골격 군집 단위로 재표집한 1차 가설의 구간은 [+0.0031, +0.0561]로 더 넓지만 여전히 0을 배제한다.</caption>
+</div>
+
+<figure>
+  <div class="plate"><img src="figures/R1_ablation.png" alt="구성별 AURC 개선량과 95퍼센트 신뢰구간"></div>
+  <figcaption><b>그림 4</b> · 제거 실험. 가로선이 95퍼센트 신뢰구간, 점이 평균이다. 0을 배제하는 것은 모델 불일치, B축, 전체 세 구성이다.</figcaption>
+</figure>
+
+<p>두 가지를 짚어둔다. 첫째, <strong>1차 가설은 지지되고 2차 가설은 지지되지 않는다.</strong> A축 단독 추가는 효과가 사실상 0이고 Wilcoxon p도 0.31이다. 둘째, <strong>모델 불일치가 우리보다 2.5배 강하다.</strong> 계획서가 정한 기준 모형에 포함되지 않지만 감추지 않고 함께 싣는다.</p>
+
+<p>AUPRC는 B축에서 +0.0058(11/22)로 AURC보다 약하다. B축이 <em>순위를 매기는 데</em>는 기여하지만 <em>큰 오차를 집어내는 데</em>는 기여가 작다는 뜻이며, 8.4절의 비대칭과 같은 방향이다.</p>
+
+<h3>8.2 물성 22종 각각에서는</h3>
+<p>평균은 분포를 감춘다. 물성별로 보면 효과는 균일하지 않다.</p>
+<figure class="wide">
+  <div class="plate"><img src="figures/D1_per_dataset.png" alt="물성 22종 각각의 B축 효과와 골격 군집 신뢰구간"></div>
+  <figcaption><b>그림 5</b> · 물성 22종 각각의 효과와 골격 군집 부트스트랩 신뢰구간. 테두리가 있는 점은 BH 보정 후 p &lt; 0.05인 물성이다. 셋뿐이며 모두 CYP 억제다. 주황은 구간 전체가 0 아래인 물성으로, B를 더하면 오히려 나빠진다.</figcaption>
+</figure>
+<p>읽어야 할 것은 셋이다. <strong>개별 물성 수준에서 BH 보정을 통과한 것은 CYP 억제 3종뿐이다</strong>(보정 전 p &lt; 0.05는 5종). <strong>표본이 작은 물성은 구간이 매우 넓다</strong> &mdash; cyp2c9_substrate는 효과가 +0.207로 가장 크지만 시험 분자가 66개라 구간이 [+0.022, +0.468]에 걸쳐 있다. <strong>ld50_zhu는 구간 전체가 0 아래다</strong>(&minus;0.023, [&minus;0.041, &minus;0.006]). B를 더하면 나빠지는 물성이 실제로 존재한다.</p>
+<p>전체 수치는 부록 A에 있다.</p>
+
+<h3>8.3 분석 방식을 바꿔도 결론이 유지된다</h3>
+<div class="tw"><table>
+<thead><tr><th>민감도 분석</th><th class="n">효과</th><th class="n">개선 물성</th><th>판정</th></tr></thead>
+<tbody>
+<tr><td>골격 군집 부트스트랩 (분자 아닌 골격 단위 재표집)</td><td class="n">+0.0286</td><td class="n">14/22</td><td>[+0.0031, +0.0561] &mdash; 0 배제</td></tr>
+<tr><td>MAD 정의 (표준편차 대신 중앙값 절대편차)</td><td class="n">+0.0210</td><td class="n"><strong>18/22</strong></td><td>Wilcoxon p 0.0024 &mdash; 원 정의보다 강하다</td></tr>
+<tr><td>계층적 분산 분해 (3.2절 정식 정의)</td><td class="n">+0.0249</td><td class="n">15/22</td><td>근사 정의와 같은 수준</td></tr>
+<tr><td>변형 3배 확대 (A 30개, pH 5~9, 입체중심별)</td><td class="n">+0.0247</td><td class="n">13/22</td><td>변형을 늘려도 강해지지 않음</td></tr>
+</tbody></table></div>
+<p>MAD 정의에서 개선 물성이 14종에서 18종으로 늘고 p가 0.035에서 0.0024로 낮아진 것은 주목할 만하다. <strong>극단적인 변형 하나가 결과를 만든 것이 아니라, 오히려 극단값을 빼면 신호가 안정된다.</strong> 반대로 A축은 MAD 정의에서도 +0.0029(12/22, p 0.61)로 변함없이 0에 가깝다.</p>
+
+<h3>8.4 실제로 쓰면 무엇이 달라지나</h3>
+<p>1,000개 후보에서 가장 믿을 만한 20퍼센트를 골라 다음 단계로 보낸다고 하자.</p>
+<div class="tw"><table>
+<thead><tr><th>구성</th><th class="n">안전하다고 고른 20%</th><th class="n">위험하다고 고른 20%</th></tr></thead>
+<tbody>
+<tr><td>기준 모형</td><td class="n">평균의 0.46배</td><td class="n">평균의 1.61배</td></tr>
+<tr class="hi"><td>기준 + B축</td><td class="n"><strong>평균의 0.39배</strong></td><td class="n">평균의 1.54배</td></tr>
+</tbody></table>
+<caption>값은 크게 틀린 예측의 비율이며 전체 평균을 1로 둔 상대값이다.</caption>
+</div>
+<figure>
+  <div class="plate"><img src="figures/R4_practical.png" alt="안전·위험 20퍼센트에서 크게 틀린 예측의 비율"></div>
+  <figcaption><b>그림 6</b> · 상위·하위 20퍼센트를 걸러냈을 때 크게 틀린 예측이 얼마나 섞이는가.</figcaption>
+</figure>
+<div class="callout"><p><strong>믿을 만한 목록에서 크게 틀린 예측이 15퍼센트 줄어든다.</strong> 반대로 위험한 것을 골라내는 능력은 조금 떨어진다(1.61 &rarr; 1.54). 이 신호는 위험 경고보다 <strong>안전 인증에 강하다</strong>. 실무에서 이 비대칭은 중요하다. 후보를 좁히는 용도에는 쓸 수 있고, 위험물을 걸러내는 용도로는 기존 신호가 낫다.</p></div>
+</div></section>
+
+<section id="s9"><div class="wrap">
+<h2><span class="num">9</span>효과는 어디에 있는가</h2>
+
+<h3>9.1 CYP 물성에 집중된다</h3>
+<div class="tw"><table>
+<thead><tr><th>물성군</th><th class="n">AURC 개선</th><th class="n">개선 물성</th><th class="n">BH 통과</th></tr></thead>
+<tbody>
+<tr class="hi"><td>CYP 6종</td><td class="n"><strong>+0.080</strong></td><td class="n"><strong>6/6</strong></td><td class="n">3</td></tr>
+<tr><td>그 외 16종</td><td class="n">+0.009</td><td class="n">8/16</td><td class="n">0</td></tr>
+</tbody></table></div>
+<figure class="wide">
+  <div class="plate"><img src="figures/R2_by_dataset.png" alt="물성 22종의 B축 효과, CYP 강조"></div>
+  <figcaption><b>그림 7</b> · 물성별 효과. CYP 여섯 종은 예외 없이 개선된다. 그 외 16종은 절반만 개선된다.</figcaption>
+</figure>
+
+<h3>9.2 표본 수 문제가 아니다</h3>
+<p>표본이 큰 물성에서만 효과가 보이는 것이라면 통계적 인공물일 수 있다. 그렇지 않다.</p>
+<ul>
+<li>CYP 억제 3종은 시험 분자가 1,200개 이상이지만, <strong>CYP 기질 3종은 66개뿐인데도 모두 개선됐다.</strong></li>
+<li>반대로 CYP가 아닌 물성 중 표본이 가장 큰 넷(ames 725, ld50 734, 친유성 419, 용해도 957)은 <strong>0/4</strong>로 하나도 개선되지 않았다.</li>
+</ul>
+
+<h3>9.3 단독 성능으로 보면</h3>
+<div class="tw"><table>
+<thead><tr><th>신호 단독 (정규화 AURC, 낮을수록 좋다)</th><th class="n">22종</th><th class="n">CYP 6종</th><th class="n">그 외 16종</th></tr></thead>
+<tbody>
+<tr><td>컨포멀</td><td class="n">0.710</td><td class="n">0.724</td><td class="n"><strong>0.704</strong></td></tr>
+<tr><td>모델 불일치</td><td class="n">0.729</td><td class="n">0.767</td><td class="n">0.715</td></tr>
+<tr><td>적용가능도메인</td><td class="n">0.757</td><td class="n">0.878</td><td class="n">0.712</td></tr>
+<tr class="hi"><td>B축</td><td class="n">0.845</td><td class="n"><strong>0.711</strong></td><td class="n neg">0.899</td></tr>
+<tr><td>A축</td><td class="n">0.854</td><td class="n">0.772</td><td class="n">0.884</td></tr>
+</tbody></table></div>
+<p><strong>CYP에서는 B축 단독이 모든 신호 중 가장 낫다.</strong> 그 외 물성에서 0.899는 무작위(1.0)에 가깝다. 같은 신호가 물성군에 따라 최고와 거의 무의미 사이를 오간다.</p>
+<figure>
+  <div class="plate"><img src="figures/10_benchmark.png" alt="전체 신호 성적표"></div>
+  <figcaption><b>그림 8</b> · 전체 신호 성적표.</figcaption>
+</figure>
+</div></section>
+
+<section id="s10"><div class="wrap">
+<h2><span class="num">10</span>왜 기존 신호보다 약한가</h2>
+<p>이 절은 적대적 자기 진단이다. 주장을 세우기 위해서가 아니라 약점의 소재를 특정하기 위해 수행했다. 전부 탐색적 분석이며 사전 등록하지 않았다.</p>
+
+<h3>10.1 B는 오차 원천의 일부만 본다</h3>
+<div class="tw"><table>
+<thead><tr><th>신호와 오차의 상관 (물성 평균)</th><th class="n">CYP 6종</th><th class="n">그 외 16종</th></tr></thead>
+<tbody>
+<tr><td>컨포멀</td><td class="n">+0.322</td><td class="n">+0.318</td></tr>
+<tr><td>적용가능도메인</td><td class="n">+0.072</td><td class="n">+0.227</td></tr>
+<tr class="hi"><td>B축</td><td class="n"><strong>+0.240</strong></td><td class="n neg">+0.077</td></tr>
+<tr><td>모델 불일치</td><td class="n">&minus;0.014</td><td class="n">&minus;0.129</td></tr>
+</tbody></table></div>
+<p>CYP 밖에서 B와 오차의 상관은 +0.077로, 컨포멀의 4분의 1 수준이다. CYP 안에서는 +0.240으로 컨포멀에 근접한다. <strong>약한 것이 아니라 특정 조건에서만 강하다</strong>는 쪽에 가깝다.</p>
+
+<h3>10.2 CYP 밖에서는 분자 크기만 넣어도 B보다 낫다</h3>
+<p>&ldquo;B축은 결국 분자 복잡도를 재는 것뿐 아니냐&rdquo;는 반론을 정면으로 시험했다. 기준 모형에 분자 크기(무거운 원자 수), 헤테로원자 수, 조건부 변형 개수만 더한 <strong>강화 기준</strong>을 만들어 비교했다.</p>
+<div class="tw"><table>
+<thead><tr><th>비교</th><th class="n">22종</th><th class="n">CYP 6종</th><th class="n">그 외 16종</th></tr></thead>
+<tbody>
+<tr><td>기준 + 기술자만</td><td class="n">+0.0247</td><td class="n">+0.0309</td><td class="n"><strong>+0.0224</strong></td></tr>
+<tr><td>기준 + B축만</td><td class="n">+0.0286</td><td class="n"><strong>+0.0802</strong></td><td class="n">+0.0093</td></tr>
+<tr class="hi"><td>강화 기준 위에 B축을 더하면</td><td class="n">+0.0178 (12/22)</td><td class="n"><strong>+0.0439 (5/6)</strong></td><td class="n">+0.0080 (7/16)</td></tr>
+</tbody></table>
+<caption>기술자는 분자 크기, 헤테로원자 수, 조건부 변형 개수 세 가지다.</caption>
+</div>
+<div class="callout warn"><p><strong>CYP 밖에서는 분자 크기 세 개만 넣은 것이 B축보다 낫다</strong>(+0.0224 대 +0.0093). 그 영역의 B 효과는 복잡도 대리 변수 수준이라고 보는 편이 정직하다. 반대로 CYP에서는 기술자를 이미 넣은 위에 B를 더해도 +0.0439가 남는다. 복잡도로 환원되지 않는다.</p></div>
+<p>가장 강한 기준 &mdash; 기술자에 모델 불일치까지 더한 구성 &mdash; 위에 B를 올려도 22종 평균 +0.0137(14/22)이 남는다. 이 수치가 사전 등록 검증(11.2절)을 설계한 직접적 동기였다.</p>
+
+<h3>10.3 변형이 만들어지지 않는 분자</h3>
+<p>B가 정의되려면 변형이 하나 이상 있어야 한다. 시험 분자 중 변형이 전혀 생기지 않아 B가 0으로 고정되는 비율을 셌다.</p>
+<div class="tw"><table>
+<thead><tr><th>물성</th><th class="n">B가 0인 분자 비율</th><th class="n">B축 효과</th></tr></thead>
+<tbody>
+<tr><td>solubility_aqsoldb</td><td class="n neg">1.000</td><td class="n">0.000</td></tr>
+<tr><td>ld50_zhu</td><td class="n">0.534</td><td class="n neg">&minus;0.023</td></tr>
+<tr><td>ames</td><td class="n">0.480</td><td class="n neg">&minus;0.008</td></tr>
+<tr><td>cyp2c9_substrate_carbonmangels</td><td class="n">0.242</td><td class="n pos">+0.207</td></tr>
+<tr><td>cyp2c9_veith</td><td class="n">0.025</td><td class="n pos">+0.057</td></tr>
+</tbody></table>
+<caption>용해도는 허용성 판정에서 B1 두 축이 모두 &ldquo;주의&rdquo;라 주 분석에서 빠졌고, 그래서 효과가 정확히 0이다. 그림 5에서 구간이 한 점으로 찍힌 이유다.</caption>
+</div>
+<p>변형 가용성이 CYP 집중을 설명하는지 확인했다. <strong>설명하지 못한다.</strong> B가 0인 비율과 B축 효과의 스피어만 상관은 &minus;0.060(p = 0.79, n = 22)으로 사실상 무관하다. CYP 기질 3종은 B가 0인 비율이 0.21~0.24로 높은데도 효과가 크다. 변형이 많이 만들어진다고 신호가 강해지는 것이 아니다.</p>
+</div></section>
+
+<section id="s11"><div class="wrap">
+<h2><span class="num">11</span>사전 등록 검증 3건</h2>
+<p>9절의 CYP 집중은 <strong>결과를 보고 발견한 패턴</strong>이다. 사후 해석을 막기 위해, 이후 분석은 구성과 판정 기준을 문서로 고정해 커밋한 뒤 <strong>한 번만</strong> 평가했다. 커밋 시각이 증거다(부록 C).</p>
+
+<h3>11.1 조절 분석 — <span class="tag no">기각</span></h3>
+<p><strong>가설.</strong> 물성의 라벨이 분자의 이온화·호변이성질 상태에 강하게 좌우될수록 B축 추가 효과가 크다.</p>
+<p><strong>지표.</strong> B축 산출물이나 모델 예측을 쓰지 않고 구조와 라벨만 쓴다. 이온화 가능 여부로 나눈 두 집단의 라벨 차이를 Mann-Whitney U의 순위 이연 상관으로 재고(S_ion), 호변이성질 가능 여부에 대해 같은 방식으로 잰다(S_taut). 한 집단이 전체의 5퍼센트 미만이면 결측으로 둔다.</p>
+<div class="tw"><table>
+<thead><tr><th>검정</th><th class="n">n</th><th class="n">스피어만 &rho;</th><th class="n">단측 p</th></tr></thead>
+<tbody>
+<tr class="hi"><td>S_ion | 비CYP 16종 <span class="dim">(1차 지표)</span></td><td class="n">12</td><td class="n neg">&minus;0.280</td><td class="n">0.813</td></tr>
+<tr><td>S_ion | 22종 전체</td><td class="n">18</td><td class="n neg">&minus;0.470</td><td class="n">0.976</td></tr>
+<tr><td>S_taut | 비CYP 16종</td><td class="n">16</td><td class="n">&minus;0.006</td><td class="n">0.505</td></tr>
+<tr><td>S_taut | 22종 전체</td><td class="n">22</td><td class="n">&minus;0.129</td><td class="n">0.712</td></tr>
+</tbody></table></div>
+<p>사전에 &ldquo;&rho; &le; 0이면 가설을 기각한다&rdquo;고 적어뒀다. 네 검정 모두 음수다. <strong>CYP 집중은 물성의 상태 민감도로 설명되지 않는다.</strong> 새 데이터(CYP1A2 S_ion 0.090, CYP2C19 0.009)에서도 기존 CYP 억제 3종(0.024~0.135)과 마찬가지로 낮아, 기각과 같은 방향이다.</p>
+
+<h3>11.2 CYP1A2·CYP2C19 재현 — <span class="tag">성공</span></h3>
+<p><strong>데이터.</strong> TDC ADME의 CYP1A2_Veith(12,579)와 CYP2C19_Veith(12,665). 22종의 CYP 억제 3종과 같은 실험(Veith 2009, P450-Glo)이나 ADMET 벤치마크 그룹에 포함되지 않아 지금까지 쓰지 않았다. 분할은 담당1의 규칙을 그대로 따랐고, 축 사용 여부는 새 데이터에서 10퍼센트 기준으로 다시 셌다(호변이성질체·양성자화·입체 사용, 염 표본 부족).</p>
+<p><strong>판정 기준(사전 고정).</strong> 두 물성 모두 1차 비교의 효과가 양수이고 적어도 한 물성에서 골격 신뢰구간이 0을 배제하면 재현 성공.</p>
+<div class="tw"><table>
+<thead><tr><th>물성</th><th class="n">시험 분자</th><th class="n">1차 비교</th><th class="n">골격 95% 신뢰구간</th><th class="n">2차 비교</th><th class="n">참고</th></tr></thead>
+<tbody>
+<tr class="hi"><td>CYP1A2 억제</td><td class="n">1,255</td><td class="n pos"><strong>+0.054</strong></td><td class="n">[+0.014, +0.097]</td><td class="n">+0.058</td><td class="n neg">&minus;0.007</td></tr>
+<tr class="hi"><td>CYP2C19 억제</td><td class="n">1,262</td><td class="n pos"><strong>+0.089</strong></td><td class="n">[+0.047, +0.135]</td><td class="n">+0.091</td><td class="n">+0.069</td></tr>
+</tbody></table>
+<caption>1차 비교는 기준 대 기준 + B 모양. 2차 비교는 분자 크기·헤테로원자 수·변형 개수를 기준에 넣은 강화 기준 위에서 더한 값. 참고는 변동 폭(표준편차)만 쓰는 옛 정의.</caption>
+</div>
+<figure>
+  <div class="plate"><img src="figures/R3_replication.png" alt="사전 등록한 재현과 확장 결과"></div>
+  <figcaption><b>그림 9</b> · 사전 등록 재현과 확장. 체크 표시는 신뢰구간이 0을 배제한 물성이다.</figcaption>
+</figure>
+<p>두 가지가 더 드러났다. 첫째, <strong>2차 비교에서도 효과가 유지된다.</strong> 분자 복잡도 기술자를 이미 넣은 상태에서 더한 값이 1차와 거의 같다. 10.2절이 제기한 반론을 새 데이터에서 막았다. 둘째, <strong>변동 폭만 쓰는 옛 정의로는 CYP1A2에서 효과가 없다</strong>(&minus;0.007, 구간이 0을 포함). 최대 이탈·방향 이동·상대 흩어짐·라벨 반전을 함께 쓰는 정의라야 작동한다. 신호의 <em>크기</em>가 아니라 <em>모양</em>이 정보를 담고 있다.</p>
+
+<h3>11.3 Biogen 확장 — <span class="tag mid">부분 성공</span></h3>
+<p><strong>설계.</strong> Biogen 공개 ADME 데이터(Fang 외 2023, 화합물 3,521종). 한 회사가 <strong>같은 화합물 집합을 같은 조건으로</strong> 여섯 물성에 대해 측정했다. 물성 간 차이를 데이터 수집 방식 탓으로 돌릴 수 없는 설계라, 22종 비교에서 문제가 됐던 교란이 설계 수준에서 제거된다.</p>
+<div class="tw"><table>
+<thead><tr><th>물성</th><th>분류</th><th class="n">시험 분자</th><th class="n">1차 비교</th><th class="n">신뢰구간</th><th class="n">2차 비교</th></tr></thead>
+<tbody>
+<tr><td>사람 간 미세소체 청소율</td><td>CYP 관련</td><td class="n">308</td><td class="n">+0.023</td><td class="n">[&minus;0.087, +0.139]</td><td class="n">+0.055</td></tr>
+<tr><td>쥐 간 미세소체 청소율</td><td>CYP 관련</td><td class="n">305</td><td class="n">+0.045</td><td class="n">[&minus;0.049, +0.133]</td><td class="n">+0.005</td></tr>
+<tr><td>MDR1-MDCK 유출비</td><td class="dim">대조</td><td class="n">264</td><td class="n"><strong>+0.102</strong></td><td class="n">[&minus;0.063, +0.264]</td><td class="n">+0.011</td></tr>
+<tr><td>용해도 pH 6.8</td><td class="dim">대조</td><td class="n">217</td><td class="n">+0.022</td><td class="n">[&minus;0.033, +0.083]</td><td class="n">+0.028</td></tr>
+</tbody></table></div>
+<p>네 물성 모두 효과가 양수였다. 그러나 <strong>대조 물성이 CYP 관련 물성보다 크게 나왔고, 어느 것도 신뢰구간이 0을 배제하지 못했다.</strong></p>
+<div class="callout warn"><p>사전 기록에 &ldquo;대조에서도 같은 크기면 CYP 특이성 주장은 성립하지 않는다&rdquo;고 적어뒀다. 그 경우에 정확히 해당한다. 시험 분자가 217~308개로 CYP1A2(1,255개)의 4분의 1이라 검정력이 부족했던 것으로 보이지만, <strong>구성을 바꿔 다시 돌리지 않고 이대로 보고한다.</strong></p></div>
+</div></section>
+
+<section id="s12"><div class="wrap">
+<h2><span class="num">12</span>효과가 없었던 시도</h2>
+<p>같은 길을 다시 걷지 않도록 싣는다.</p>
+<div class="tw"><table>
+<thead><tr><th>시도</th><th>결과</th></tr></thead>
+<tbody>
+<tr><td>여러 결합기 (로지스틱, 랜덤포레스트 등 7종)</td><td>전부 실패. 결합기 복잡화는 답이 아니었다</td></tr>
+<tr><td>축을 개별 변수로 분리해 입력</td><td>변수가 늘어 과적합, 악화</td></tr>
+<tr><td>물성 통합 게이팅</td><td>AURC는 개선되나 AUPRC 정체</td></tr>
+<tr><td>축 분산을 컨포멀 척도 함수로 사용</td><td>예측 구간 폭이 3배로 폭발</td></tr>
+<tr><td>변형 3배 확대 (A 30개, pH 5~9, 입체중심별)</td><td>+0.0247로 신호가 강해지지 않음</td></tr>
+<tr><td>호변이성질체 안정성 필터</td><td>엄격히 거를수록 악화 (+0.037 &rarr; +0.013)</td></tr>
+<tr><td>측정 조건 이질성 분석 (pH 명확 대 불명확)</td><td>허용성 표 개정으로 결론이 뒤집혀 주 결과에서 제외</td></tr>
+<tr><td>상태 민감도로 CYP 집중 설명</td><td><strong>사전 등록 후 기각</strong> (&rho; = &minus;0.28, p = 0.81)</td></tr>
+</tbody></table></div>
+<p>두 항목을 덧붙인다. <strong>호변이성질체 안정성 필터</strong>는 직관과 반대였다. 생성된 호변이성질체 중 에너지적으로 불안정한 것을 걸러내면 신호가 깨끗해질 것으로 예상했으나, 엄격히 거를수록 효과가 줄었다. 비현실적인 상태에서 예측이 크게 흔들리는 것 자체가 정보인 듯하다. <strong>이질성 분석</strong>은 초기에 &ldquo;pH 조건이 분명한 물성에서만 작동한다&rdquo;는 결과를 냈으나, 담당1이 허용성 표를 개정해 물성 3종이 그룹을 옮기자 p가 0.047에서 0.668로 무너졌다. 분류 하나에 결론이 뒤집히는 주장은 싣지 않는 것이 맞다고 판단했다.</p>
+</div></section>
+
+<section id="s13"><div class="wrap">
+<h2><span class="num">13</span>데모</h2>
+<p><a href="https://mist-506994380250.asia-northeast3.run.app">mist-506994380250.asia-northeast3.run.app</a></p>
+<p>분자 하나를 넣으면 변형을 만들어 두 모델로 채점하고, 어느 변형이 예측을 바꿨는지 구조에 표시한다. 임의의 SMILES를 받는다.</p>
+<div class="tw"><table>
+<thead><tr><th>화면</th><th>보여주는 것</th></tr></thead>
+<tbody>
+<tr><td>판정</td><td>세 등급과 근거. 등급 경계는 시험 분자 7,979개의 실제 미달률로 정했다</td></tr>
+<tr><td>신뢰성 축</td><td>세 축과 기존 신호(모델 불일치)를 나란히. 하나의 점수로 합치지 않는다</td></tr>
+<tr><td>무엇이 예측을 크게 바꿨나</td><td>변형 구조와 예측 변화. 달라진 원자를 색으로 표시</td></tr>
+<tr><td>가장 닮은 학습 분자</td><td>적용가능도메인 숫자를 구조로 보여준다</td></tr>
+<tr><td>축별 판정</td><td>어느 축을 썼고 쓰지 않은 축은 왜 제외했는지</td></tr>
+</tbody></table></div>
+<p>물성 6종을 싣는다. B축이 잘 작동하는 CYP 둘과 거의 작동하지 않는 넷을 함께 둔다. <strong>이 도구는 신호가 언제 작동하지 않는지도 보여주려고 만들었다.</strong> 세 축을 단일 점수로 합치지 않는 것은 1.2절에서 QUAD의 결과를 인용한 것과 같은 이유다.</p>
+</div></section>
+
+<section id="s14"><div class="wrap">
+<h2><span class="num">14</span>주장의 범위</h2>
+
+<h3>주장할 수 있는 것</h3>
+<ul>
+<li><strong>사전 지정한 1차 가설이 지지된다.</strong> 계획서가 정한 기준 모형 대비 B축 추가가 위험 선별을 개선하고, 골격 군집 신뢰구간이 0을 배제한다.</li>
+<li><strong>이 신호는 기존 신호와 원천이 다르다.</strong> 순위 상관이 거의 0이고, 골격 거리와 반대 방향으로 움직이며, 기존 신호를 통제해도 정보가 남는다.</li>
+<li><strong>CYP 억제 물성에서 유효하며 독립 데이터 두 종에서 재현됐다.</strong> 구성을 결과 관찰 전에 고정했고 평가는 한 번만 했다. 분자 복잡도 기술자를 통제한 뒤에도 유지된다.</li>
+<li><strong>안전 인증에 강하다.</strong> 믿을 만하다고 고른 20퍼센트의 오류율이 기준의 0.46배에서 0.39배로 낮아진다.</li>
+</ul>
+
+<h3>주장할 수 없는 것</h3>
+<ul>
+<li><strong>범용 신뢰성 지표.</strong> CYP 밖에서는 효과를 확인하지 못했고, 그 영역에서는 분자 크기 세 개만 넣은 기준이 B축보다 낫다.</li>
+<li><strong>기존 신호를 대체한다.</strong> 모델 불일치가 2.5배 강하다. B축은 대체재가 아니라 보완재다.</li>
+<li><strong>CYP 관련 물성 전반으로의 확장.</strong> Biogen에서 확인하지 못했다.</li>
+<li><strong>CYP에서 잘 되는 이유.</strong> 사전 등록한 설명 가설이 기각됐고 대안 가설은 아직 없다.</li>
+</ul>
+</div></section>
+
+<section id="s15"><div class="wrap">
+<h2><span class="num">15</span>한계</h2>
+<ol>
+<li><strong>효과 크기가 작다.</strong> 기준 대비 5퍼센트 수준이다. 다만 분야 전체가 이 수준이다. 가장 강한 기존 신호도 무작위와 완벽 사이의 30퍼센트밖에 가지 못한다.</li>
+<li><strong>물성 22종은 효과 크기 +0.01을 가려내기에 부족하다.</strong> CYP 밖 16종의 신뢰구간이 [&minus;0.006, +0.028]로 넓다. &ldquo;효과가 없다&rdquo;가 아니라 &ldquo;있는지 없는지 이 표본으로는 모른다&rdquo;가 맞는 서술이다.</li>
+<li><strong>언어 모델이 ChemBERTa 하나뿐이다.</strong> A축은 원리상 문자열 모델에서만 나오므로 구조 기반 모델로는 검증할 수 없다. 2차 가설의 기각은 &ldquo;A축이 쓸모없다&rdquo;가 아니라 &ldquo;이 모델에서는 쓸모가 없었다&rdquo;로 읽어야 한다.</li>
+<li><strong>CYP 집중이 사후 발견이다.</strong> 새 데이터 두 종으로 재현했지만, 애초에 이 패턴은 결과를 본 뒤에 찾았다. 재현은 사후 발견을 확증으로 바꾸지 않고 신뢰도만 높인다.</li>
+<li><strong>측정 조건 분류에 민감하다.</strong> 허용성 표의 판정 하나로 결론이 뒤집힌 전례가 있다(12절). 이 분류는 사람의 문헌 판독에 의존한다.</li>
+<li><strong>Biogen 확장의 검정력이 부족했다.</strong> 시험 분자가 217~308개였다. 이 결과로 확장 가능성을 배제할 수는 없다.</li>
+</ol>
+</div></section>
+
+<section id="s16"><div class="wrap">
+<h2><span class="num">16</span>남은 과제</h2>
+<div class="tw"><table>
+<thead><tr><th>과제</th><th>내용</th><th>근거</th></tr></thead>
+<tbody>
+<tr><td>구조 기반 모델 검증</td><td>Chemprop(D-MPNN)에서 B축을 다시 잰다</td><td>B 효과의 대부분이 지문 모델에서 나왔다(+0.0285 대 언어 모델 +0.003). 한계 3항을 직접 메운다</td></tr>
+<tr><td>Biogen 검정력 확보</td><td>시험 비율을 높여 재설계. 새 사전 기록이 필요하다</td><td>현재 구간 폭이 효과 크기의 세 배를 넘는다</td></tr>
+<tr><td>CYP 집중의 기전</td><td>이온화 민감도 외의 가설. 변형 가용성도 설명하지 못했다</td><td>11.1절 기각, 10.3절 &rho; = &minus;0.06</td></tr>
+<tr><td>신호의 모양</td><td>최대 이탈·방향 이동·라벨 반전 중 무엇이 기여하는지 분해</td><td>11.2절에서 변동 폭 단독으로는 작동하지 않음을 확인</td></tr>
+<tr><td>재현 패키지</td><td><code>run_all.sh</code> 정비</td><td>현재는 스크립트를 순서대로 실행해야 한다</td></tr>
+</tbody></table></div>
+</div></section>
+
+<section id="a1"><div class="wrap">
+<h2><span class="num">부록 A</span>물성 22종 전체 결과표</h2>
+<p>효과가 큰 순서다. 효과는 기준 모형의 정규화 AURC에서 기준 + B축의 정규화 AURC를 뺀 값이다. 신뢰구간은 골격 군집 2,000회 복원 추출이며, p는 같은 부트스트랩의 양측 p, BH는 22종에 대한 Benjamini-Hochberg 보정값이다.</p>
+<div class='tw'><table><thead><tr><th>물성</th><th class='n'>시험</th><th class='n'>골격</th><th class='n'>기준 AURC</th><th class='n'>+B AURC</th><th class='n'>효과</th><th class='n'>골격 95% 구간</th><th class='n'>p</th><th class='n'>BH</th><th class='n'>효과 (MAD)</th><th class='n'>효과 (A축)</th></tr></thead><tbody><tr class="hi"><td>cyp2c9_substrate_carbonmangels</td><td class='n'>66</td><td class='n'>66</td><td class='n'>0.5554</td><td class='n'>0.3480</td><td class='n'><span class='pos'>+0.2074</span></td><td class='n'>[+0.022, +0.468]</td><td class='n'>0.015</td><td class='n'>0.066</td><td class='n'><span class='pos'>+0.1140</span></td><td class='n'><span class='neg'>−0.0694</span></td></tr><tr><td>bioavailability_ma</td><td class='n'>63</td><td class='n'>63</td><td class='n'>0.6339</td><td class='n'>0.5226</td><td class='n'><span class='pos'>+0.1113</span></td><td class='n'>[−0.067, +0.343]</td><td class='n'>0.264</td><td class='n'>0.717</td><td class='n'><span class='pos'>+0.0211</span></td><td class='n'><span class='neg'>−0.1484</span></td></tr><tr class="hi"><td>cyp2d6_substrate_carbonmangels</td><td class='n'>66</td><td class='n'>66</td><td class='n'>0.8838</td><td class='n'>0.8108</td><td class='n'><span class='pos'>+0.0730</span></td><td class='n'>[−0.047, +0.221]</td><td class='n'>0.237</td><td class='n'>0.717</td><td class='n'><span class='pos'>+0.0118</span></td><td class='n'><span class='neg'>−0.0405</span></td></tr><tr class="hi"><td>cyp2d6_veith</td><td class='n'>1,308</td><td class='n'>1,308</td><td class='n'>0.4432</td><td class='n'>0.3761</td><td class='n'><strong><span class='pos'>+0.0671</span></strong></td><td class='n'>[+0.018, +0.114]</td><td class='n'>0.003</td><td class='n'><strong>0.022</strong></td><td class='n'><span class='pos'>+0.0185</span></td><td class='n'><span class='pos'>+0.1018</span></td></tr><tr><td>clearance_hepatocyte_az</td><td class='n'>101</td><td class='n'>101</td><td class='n'>0.8524</td><td class='n'>0.7867</td><td class='n'><span class='pos'>+0.0657</span></td><td class='n'>[−0.148, +0.276]</td><td class='n'>0.560</td><td class='n'>0.968</td><td class='n'><span class='pos'>+0.0798</span></td><td class='n'><span class='neg'>−0.0053</span></td></tr><tr class="hi"><td>cyp2c9_veith</td><td class='n'>1,204</td><td class='n'>1,204</td><td class='n'>0.5470</td><td class='n'>0.4903</td><td class='n'><strong><span class='pos'>+0.0567</span></strong></td><td class='n'>[+0.023, +0.092]</td><td class='n'>0.000</td><td class='n'><strong>0.000</strong></td><td class='n'><span class='pos'>+0.0376</span></td><td class='n'><span class='pos'>+0.0791</span></td></tr><tr><td>clearance_microsome_az</td><td class='n'>110</td><td class='n'>110</td><td class='n'>0.6720</td><td class='n'>0.6264</td><td class='n'><span class='pos'>+0.0456</span></td><td class='n'>[−0.075, +0.170]</td><td class='n'>0.460</td><td class='n'>0.920</td><td class='n'><span class='pos'>+0.0280</span></td><td class='n'><span class='neg'>−0.0026</span></td></tr><tr class="hi"><td>cyp3a4_veith</td><td class='n'>1,230</td><td class='n'>1,230</td><td class='n'>0.4601</td><td class='n'>0.4163</td><td class='n'><strong><span class='pos'>+0.0438</span></strong></td><td class='n'>[+0.016, +0.074]</td><td class='n'>0.001</td><td class='n'><strong>0.011</strong></td><td class='n'><span class='pos'>+0.0264</span></td><td class='n'><span class='pos'>+0.0772</span></td></tr><tr class="hi"><td>cyp3a4_substrate_carbonmangels</td><td class='n'>66</td><td class='n'>66</td><td class='n'>0.8077</td><td class='n'>0.7745</td><td class='n'><span class='pos'>+0.0332</span></td><td class='n'>[−0.298, +0.380]</td><td class='n'>0.854</td><td class='n'>0.989</td><td class='n'><span class='pos'>+0.0238</span></td><td class='n'><span class='pos'>+0.0184</span></td></tr><tr><td>vdss_lombardo</td><td class='n'>111</td><td class='n'>111</td><td class='n'>0.3858</td><td class='n'>0.3721</td><td class='n'><span class='pos'>+0.0137</span></td><td class='n'>[−0.048, +0.077]</td><td class='n'>0.683</td><td class='n'>0.968</td><td class='n'><span class='pos'>+0.0028</span></td><td class='n'><span class='pos'>+0.0056</span></td></tr><tr><td>bbb_martins</td><td class='n'>195</td><td class='n'>195</td><td class='n'>0.2466</td><td class='n'>0.2367</td><td class='n'><span class='pos'>+0.0098</span></td><td class='n'>[−0.028, +0.047]</td><td class='n'>0.585</td><td class='n'>0.968</td><td class='n'><span class='neg'>−0.0102</span></td><td class='n'><span class='pos'>+0.0196</span></td></tr><tr><td>hia_hou</td><td class='n'>58</td><td class='n'>58</td><td class='n'>0.2884</td><td class='n'>0.2803</td><td class='n'><span class='pos'>+0.0081</span></td><td class='n'>[−0.152, +0.166]</td><td class='n'>0.974</td><td class='n'>1.000</td><td class='n'><span class='pos'>+0.0313</span></td><td class='n'><span class='neg'>−0.0169</span></td></tr><tr><td>half_life_obach</td><td class='n'>66</td><td class='n'>66</td><td class='n'>0.6794</td><td class='n'>0.6788</td><td class='n'><span class='pos'>+0.0007</span></td><td class='n'>[−0.025, +0.023]</td><td class='n'>0.902</td><td class='n'>0.992</td><td class='n'><span class='pos'>+0.0594</span></td><td class='n'><span class='pos'>+0.0509</span></td></tr><tr><td>ppbr_az</td><td class='n'>179</td><td class='n'>179</td><td class='n'>0.7360</td><td class='n'>0.7355</td><td class='n'><span class='pos'>+0.0005</span></td><td class='n'>[−0.049, +0.061]</td><td class='n'>0.735</td><td class='n'>0.968</td><td class='n'><span class='pos'>+0.0120</span></td><td class='n'><span class='pos'>+0.0224</span></td></tr><tr><td>solubility_aqsoldb</td><td class='n'>957</td><td class='n'>711</td><td class='n'>0.8539</td><td class='n'>0.8539</td><td class='n'><span>+0.0000</span></td><td class='n'>[+0.000, +0.000]</td><td class='n'>1.000</td><td class='n'>1.000</td><td class='n'><span>+0.0000</span></td><td class='n'><span class='neg'>−0.0183</span></td></tr><tr><td>pgp_broccatelli</td><td class='n'>121</td><td class='n'>121</td><td class='n'>0.3317</td><td class='n'>0.3351</td><td class='n'><span class='neg'>−0.0034</span></td><td class='n'>[−0.041, +0.039]</td><td class='n'>0.756</td><td class='n'>0.968</td><td class='n'><span class='neg'>−0.0180</span></td><td class='n'><span class='pos'>+0.0681</span></td></tr><tr><td>ames</td><td class='n'>725</td><td class='n'>488</td><td class='n'>0.4359</td><td class='n'>0.4437</td><td class='n'><span class='neg'>−0.0078</span></td><td class='n'>[−0.024, +0.007]</td><td class='n'>0.322</td><td class='n'>0.717</td><td class='n'><span class='pos'>+0.0009</span></td><td class='n'><span class='pos'>+0.0270</span></td></tr><tr><td>herg</td><td class='n'>63</td><td class='n'>63</td><td class='n'>0.4280</td><td class='n'>0.4363</td><td class='n'><span class='neg'>−0.0083</span></td><td class='n'>[−0.095, +0.084]</td><td class='n'>0.792</td><td class='n'>0.968</td><td class='n'><span class='pos'>+0.0139</span></td><td class='n'><span class='neg'>−0.2146</span></td></tr><tr><td>lipophilicity_astrazeneca</td><td class='n'>419</td><td class='n'>419</td><td class='n'>0.6280</td><td class='n'>0.6412</td><td class='n'><span class='neg'>−0.0131</span></td><td class='n'>[−0.029, +0.005]</td><td class='n'>0.139</td><td class='n'>0.510</td><td class='n'><span class='pos'>+0.0052</span></td><td class='n'><span class='pos'>+0.0009</span></td></tr><tr><td>dili</td><td class='n'>47</td><td class='n'>47</td><td class='n'>0.6127</td><td class='n'>0.6283</td><td class='n'><span class='neg'>−0.0156</span></td><td class='n'>[−0.085, +0.048]</td><td class='n'>0.655</td><td class='n'>0.968</td><td class='n'><span class='pos'>+0.0038</span></td><td class='n'><span class='pos'>+0.0114</span></td></tr><tr><td>ld50_zhu</td><td class='n'>734</td><td class='n'>585</td><td class='n'>0.7186</td><td class='n'>0.7416</td><td class='n'><span class='neg'>−0.0231</span></td><td class='n'>[−0.041, −0.006]</td><td class='n'>0.010</td><td class='n'>0.055</td><td class='n'><span class='neg'>−0.0243</span></td><td class='n'><span class='pos'>+0.0258</span></td></tr><tr><td>caco2_wang</td><td class='n'>90</td><td class='n'>84</td><td class='n'>0.9839</td><td class='n'>1.0192</td><td class='n'><span class='neg'>−0.0354</span></td><td class='n'>[−0.117, +0.032]</td><td class='n'>0.326</td><td class='n'>0.717</td><td class='n'><span class='pos'>+0.0235</span></td><td class='n'><span class='pos'>+0.0137</span></td></tr></tbody><caption>파랗게 칠한 행이 CYP 물성 6종이다. 굵은 글씨는 BH 보정 후 p &lt; 0.05인 3종. solubility_aqsoldb는 허용성 판정에서 B1 두 축이 모두 주의라 주 분석에서 빠져 효과가 정확히 0이다.</caption></table></div>
+<p>보정 전 p &lt; 0.05는 5종이고 보정 후에는 3종이다. 보정 전 유의했던 둘 중 하나는 <code>ld50_zhu</code>로, <strong>효과가 음수</strong>다.</p>
+</div></section>
+
+<section id="a2"><div class="wrap">
+<h2><span class="num">부록 B</span>변형 허용성 판정표</h2>
+<p>담당1이 각 물성의 TDC 문서와 원 논문 실험 조건을 읽어 결과 관찰 전에 확정했다. 주 분석은 &ldquo;허용&rdquo;만 사용한다.</p>
+<div class='tw'><table><thead><tr><th>물성</th><th>과제</th><th>B1 호변이성질체</th><th>B1 양성자화</th><th>B2 염 형태</th><th>B3 입체 표기</th></tr></thead><tbody><tr><td>caco2_wang</td><td class='dim'>회귀</td><td><span class='pos'>허용</span></td><td><span class='dim'>주의</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td></tr><tr><td>lipophilicity_astrazeneca</td><td class='dim'>회귀</td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td></tr><tr><td>solubility_aqsoldb</td><td class='dim'>회귀</td><td><span class='dim'>주의</span></td><td><span class='dim'>주의</span></td><td><span class='neg'>충돌</span></td><td><span class='pos'>허용</span></td></tr><tr><td>ppbr_az</td><td class='dim'>회귀</td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td></tr><tr><td>vdss_lombardo</td><td class='dim'>회귀</td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td></tr><tr><td>half_life_obach</td><td class='dim'>회귀</td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td></tr><tr><td>clearance_hepatocyte_az</td><td class='dim'>회귀</td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td></tr><tr><td>clearance_microsome_az</td><td class='dim'>회귀</td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td></tr><tr><td>ld50_zhu</td><td class='dim'>회귀</td><td><span class='pos'>허용</span></td><td><span class='dim'>주의</span></td><td><span class='neg'>충돌</span></td><td><span class='pos'>허용</span></td></tr><tr><td>hia_hou</td><td class='dim'>분류</td><td><span class='pos'>허용</span></td><td><span class='dim'>주의</span></td><td><span class='dim'>주의</span></td><td><span class='pos'>허용</span></td></tr><tr><td>pgp_broccatelli</td><td class='dim'>분류</td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td></tr><tr><td>bioavailability_ma</td><td class='dim'>분류</td><td><span class='pos'>허용</span></td><td><span class='dim'>주의</span></td><td><span class='dim'>주의</span></td><td><span class='pos'>허용</span></td></tr><tr><td>bbb_martins</td><td class='dim'>분류</td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td></tr><tr class="hi"><td>cyp2c9_veith</td><td class='dim'>분류</td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td></tr><tr class="hi"><td>cyp2d6_veith</td><td class='dim'>분류</td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td></tr><tr class="hi"><td>cyp3a4_veith</td><td class='dim'>분류</td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td></tr><tr class="hi"><td>cyp2c9_substrate_carbonmangels</td><td class='dim'>분류</td><td><span class='pos'>허용</span></td><td><span class='dim'>주의</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td></tr><tr class="hi"><td>cyp2d6_substrate_carbonmangels</td><td class='dim'>분류</td><td><span class='pos'>허용</span></td><td><span class='dim'>주의</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td></tr><tr class="hi"><td>cyp3a4_substrate_carbonmangels</td><td class='dim'>분류</td><td><span class='pos'>허용</span></td><td><span class='dim'>주의</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td></tr><tr><td>herg</td><td class='dim'>분류</td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td></tr><tr><td>ames</td><td class='dim'>분류</td><td><span class='pos'>허용</span></td><td><span class='dim'>주의</span></td><td><span class='pos'>허용</span></td><td><span class='pos'>허용</span></td></tr><tr><td>dili</td><td class='dim'>분류</td><td><span class='pos'>허용</span></td><td><span class='dim'>주의</span></td><td><span class='dim'>주의</span></td><td><span class='pos'>허용</span></td></tr></tbody><caption>B2는 허용 판정을 받고도 사전 선별에서 22종 모두 탈락해 변형을 생성하지 않았다. B3는 solubility_aqsoldb·ld50_zhu·dili 세 종이 같은 이유로 빠져 19종이다.</caption></table></div>
+</div></section>
+
+<section id="a3"><div class="wrap">
+<h2><span class="num">부록 C</span>사전 등록 기록과 커밋 시각</h2>
+<p>각 문서는 해당 분석을 <strong>계산하기 전에</strong> 커밋했다. 커밋 시각이 증거다.</p>
+<div class="tw"><table>
+<thead><tr><th>커밋</th><th class="n">시각</th><th>문서</th><th>판정</th></tr></thead>
+<tbody>
+<tr><td class="n"><code>824f31d</code></td><td class="n">2026-09-26 21:40</td><td>사전기록 1 · 상태 민감도 조절 분석</td><td><span class="tag no">기각</span></td></tr>
+<tr><td class="n"><code>d22c560</code></td><td class="n">2026-09-26 21:52</td><td class="dim">&mdash; 위 분석 실행</td><td class="dim">&rho; = &minus;0.28</td></tr>
+<tr><td class="n"><code>421cd9b</code></td><td class="n">2026-09-26 22:09</td><td>사전기록 2 · CYP1A2·CYP2C19 재현</td><td><span class="tag">성공</span></td></tr>
+<tr><td class="n"><code>4e04049</code></td><td class="n">2026-09-27 00:32</td><td class="dim">&mdash; 평가 코드를 새 데이터에 돌리기 전에 고정</td><td class="dim"></td></tr>
+<tr><td class="n"><code>c578769</code></td><td class="n">2026-09-27 00:46</td><td class="dim">&mdash; 새 데이터의 민감도 지표를 평가 전에 기록</td><td class="dim"></td></tr>
+<tr><td class="n"><code>e15f801</code></td><td class="n">2026-09-27 00:51</td><td>사전기록 3 · Biogen 확장</td><td><span class="tag mid">부분 성공</span></td></tr>
+</tbody></table></div>
+<h3>각 문서가 미리 적어둔 판정 기준</h3>
+<ul>
+<li><strong>사전기록 1</strong> — &ldquo;&rho; &gt; 0이고 p &lt; 0.05이면 지지. &rho; &gt; 0이나 p &ge; 0.05이면 검정력 부족으로 보고. &rho; &le; 0이면 기각.&rdquo;</li>
+<li><strong>사전기록 2</strong> — &ldquo;두 물성 모두 효과가 양수이고 적어도 한 물성에서 골격 신뢰구간이 0을 배제하면 재현 성공. 한 물성이라도 효과가 0 이하면 실패.&rdquo;</li>
+<li><strong>사전기록 3</strong> — &ldquo;CYP 관련 두 물성 모두 양수이고, 한 물성에서 구간이 0을 배제하며, 두 물성 평균이 대조 두 물성 평균보다 크면 확장 성공. 대조에서도 같은 크기면 CYP 특이성 주장은 성립하지 않는다.&rdquo;</li>
+</ul>
+<p>세 문서 모두 같은 약속으로 끝난다. <strong>평가는 한 번만 실행한다. 결과가 어떻게 나오든 이 구성과 판정으로 보고한다. 실패해도 구성을 바꿔 다시 평가하지 않는다.</strong></p>
+</div></section>
+
+<section id="a4"><div class="wrap">
+<h2><span class="num">부록 D</span>용어 해설</h2>
+<div class="tw"><table>
+<thead><tr><th>용어</th><th>뜻</th></tr></thead>
+<tbody>
+<tr><td><strong>SMILES</strong></td><td>분자 구조를 문자열로 적는 표기법. 같은 분자를 여러 문자열로 적을 수 있다</td></tr>
+<tr><td><strong>호변이성질체</strong></td><td>수소 원자와 이중결합의 위치만 다른 이성질체. 용액에서 서로 빠르게 변환되며 평형을 이룬다</td></tr>
+<tr><td><strong>양성자화 상태</strong></td><td>분자가 수소 이온을 얻거나 잃은 상태. pH에 따라 달라진다</td></tr>
+<tr><td><strong>입체 표기</strong></td><td>원자의 3차원 배치 정보. 실험 데이터에 기록되지 않은 경우가 많다</td></tr>
+<tr><td><strong>Morgan 지문</strong></td><td>분자 그래프의 국소 환경을 비트 벡터로 바꾼 특징. 문자열이 아니라 그래프에서 계산된다</td></tr>
+<tr><td><strong>Bemis-Murcko 골격</strong></td><td>분자에서 곁사슬을 떼고 남은 고리 구조. 골격 기반 분할은 학습과 시험에 서로 다른 골격이 들어가게 한다</td></tr>
+<tr><td><strong>적용가능도메인</strong></td><td>모델이 신뢰할 만한 화학 공간의 범위. 보통 학습 데이터와의 유사도로 잰다</td></tr>
+<tr><td><strong>컨포멀 예측</strong></td><td>지정한 커버리지를 보장하는 예측 구간이나 예측 집합을 만드는 방법</td></tr>
+<tr><td><strong>정규화 AURC</strong></td><td>신뢰도 순으로 예측을 받아들이며 잰 누적 오차. 0이 완벽, 1이 무작위</td></tr>
+<tr><td><strong>AUPRC</strong></td><td>정밀도-재현율 곡선 아래 면적. 큰 오차 사례가 소수일 때 적절하다</td></tr>
+<tr><td><strong>골격 군집 부트스트랩</strong></td><td>분자가 아니라 골격 그룹을 복원 추출해 신뢰구간을 구하는 방법. 같은 골격의 분자가 독립이 아니기 때문에 쓴다</td></tr>
+<tr><td><strong>Benjamini-Hochberg</strong></td><td>여러 번 검정할 때 위양성 발견율을 통제하는 보정 절차</td></tr>
+</tbody></table></div>
+</div></section>
+
+<section id="a5"><div class="wrap">
+<h2><span class="num">부록 E</span>참고문헌</h2>
+<p>모든 항목은 Europe PMC 또는 CrossRef에서 서지 정보와 초록을 직접 확인했다.</p>
+
+<h4>직접 경쟁 및 기준선</h4>
+<ul>
+<li>QUAD: a composite risk framework integrating uncertainty, applicability domain, and model disagreement for reliable QSAR predictions. <em>J Comput Aided Mol Des</em> (2026). DOI 10.1007/s10822-026-00873-8</li>
+<li>Explicit Applicability Domain Calculations Can Help Determine When Uncertainty Estimates Are Less Reliable. <em>ACS Omega</em> (2026). DOI 10.1021/acsomega.5c11875</li>
+<li>Beyond Heuristics: A Model-Agnostic Framework for Uncertainty Quantification in QSAR via Adaptive Conformal Prediction. <em>Chem Res Toxicol</em> (2026). DOI 10.1021/acs.chemrestox.6c00065</li>
+<li>Conformalized Graph Learning for Molecular ADMET Property Prediction and Reliable Uncertainty Quantification. <em>J Chem Inf Model</em> (2024). DOI 10.1021/acs.jcim.4c01139</li>
+<li>Atomic Uncertainty Pinpoints Critical Failure Structures for Trustworthy Molecular Property Prediction. <em>J Chem Inf Model</em> (2026). DOI 10.1021/acs.jcim.6c00973</li>
+<li>Uncertainty Quantification in Molecular Machine Learning for Property Predictions under Data Shifts. <em>J Chem Inf Model</em> (2026). DOI 10.1021/acs.jcim.5c02381</li>
+</ul>
+
+<h4>표현 변동 및 증강</h4>
+<ul>
+<li>Kimber, T. B. et al. Maxsmi: Maximizing molecular property prediction performance with confidence estimation using SMILES augmentation and deep learning. <em>Artif Intell Life Sci</em> (2021). DOI 10.1016/j.ailsci.2021.100014</li>
+<li>Using test-time augmentation to investigate explainable AI: inconsistencies between method, model and human intuition. <em>J Cheminform</em> (2024). DOI 10.1186/s13321-024-00824-1</li>
+</ul>
+
+<h4>입력 상태 및 표준화</h4>
+<ul>
+<li>canSAR chemistry registration and standardization. <em>J Cheminform</em> (2022). DOI 10.1186/s13321-022-00606-7</li>
+<li>Handling of tautomerism and stereochemistry in compound registration. <em>J Chem Inf Model</em> (2012). DOI 10.1021/ci200330x</li>
+<li>The effect of ligand-based tautomer and protomer prediction on structure-based virtual screening. <em>J Chem Inf Model</em> (2009). DOI 10.1021/ci900364w</li>
+<li>Considerations in compound database preparation: hidden impact on virtual screening results. <em>J Chem Inf Model</em> (2005). DOI 10.1021/ci050185z</li>
+<li>Fourches, D., Muratov, E., Tropsha, A. Trust, but verify: on the importance of chemical structure curation in cheminformatics and QSAR modeling research. <em>J Chem Inf Model</em> (2010). DOI 10.1021/ci100176x</li>
+<li>Free and open-source QSAR-ready workflow for automated standardization of chemical structures. <em>J Cheminform</em> (2024). DOI 10.1186/s13321-024-00814-3</li>
+</ul>
+
+<h4>기초 방법론</h4>
+<ul>
+<li>Therapeutics Data Commons, ADMET Benchmark Group (회귀 9종, 분류 13종, 골격 기반 분할)</li>
+<li>Rogers, D., Hahn, M. Extended-Connectivity Fingerprints. <em>J Chem Inf Model</em> (2010). DOI 10.1021/ci100050t</li>
+<li>Bemis, G. W., Murcko, M. A. The Properties of Known Drugs. 1. Molecular Frameworks. <em>J Med Chem</em> (1996)</li>
+<li>Introducing conformal prediction in predictive modeling: a transparent and flexible alternative to applicability domain determination. <em>J Chem Inf Model</em> (2014). DOI 10.1021/ci5001168</li>
+<li>Romano, Y., Patterson, E., Cand&egrave;s, E. Conformalized Quantile Regression (2019)</li>
+<li>Angelopoulos, A. N., Bates, S. Conformal Prediction: A Gentle Introduction (2023)</li>
+<li>Chithrananda, S., Grand, G., Ramsundar, B. ChemBERTa: Large-Scale Self-Supervised Pretraining for Molecular Property Prediction (2020)</li>
+<li>Fang, C. et al. Prospective Validation of Machine Learning Algorithms for ADME Prediction (Biogen ADME 공개 데이터, 2023)</li>
+</ul>
+</div></section>
+
+<section id="a6"><div class="wrap">
+<h2><span class="num">부록 F</span>산출물·그림·역할</h2>
+
+<h3>그림 목록</h3>
+<div class="tw"><table>
+<thead><tr><th class="n">그림</th><th>파일</th><th>무엇을 보이나</th><th class="n">절</th></tr></thead>
+<tbody>
+<tr><td class="n">1</td><td><code>03_분위별오차.png</code></td><td>예측 변동 분위별 오차</td><td class="n">6.1</td></tr>
+<tr><td class="n">2</td><td><code>09_골격거리.png</code></td><td>골격 거리별 축 크기</td><td class="n">6.2</td></tr>
+<tr><td class="n">3</td><td><code>05_겹침구조.png</code></td><td>신호 간 겹침 구조</td><td class="n">7.2</td></tr>
+<tr><td class="n">4</td><td><code>R1_제거실험.png</code></td><td>구성별 AURC 개선과 신뢰구간</td><td class="n">8.1</td></tr>
+<tr><td class="n">5</td><td><code>D1_물성별신뢰구간.png</code></td><td>물성 22종 각각의 효과와 구간</td><td class="n">8.2</td></tr>
+<tr><td class="n">6</td><td><code>R4_실사용.png</code></td><td>안전·위험 20퍼센트 오류율</td><td class="n">8.4</td></tr>
+<tr><td class="n">7</td><td><code>R2_물성별효과.png</code></td><td>물성별 효과, CYP 강조</td><td class="n">9.1</td></tr>
+<tr><td class="n">8</td><td><code>10_벤치마크.png</code></td><td>전체 신호 성적표</td><td class="n">9.3</td></tr>
+<tr><td class="n">9</td><td><code>R3_재현확장.png</code></td><td>사전 등록 재현과 확장</td><td class="n">11.2</td></tr>
+</tbody></table>
+<caption>모든 그림은 저장소 <code>docs/figures/</code>에 있다. 발표 자료에 그대로 옮길 수 있는 해상도다.</caption>
+</div>
+
+<h3>산출물 위치</h3>
+<div class="tw"><table>
+<thead><tr><th>항목</th><th>위치</th></tr></thead>
+<tbody>
+<tr><td>코드</td><td>GitHub <code>Feellived/molecular-reliability-signals</code>, <code>main</code> 브랜치</td></tr>
+<tr><td>보고서 (간결판·상세판)</td><td><code>Main/보고서/</code> &mdash; Markdown · HTML · PDF · Word</td></tr>
+<tr><td>표제 수치 원본</td><td><code>Main/결과표/</code> &mdash; CSV · JSON 12종</td></tr>
+<tr><td>사전 등록 기록</td><td><code>Main/사전등록/</code></td></tr>
+<tr><td>중간 산출물</td><td><code>Main/보관/</code></td></tr>
+<tr><td>데모</td><td><code>demo/</code>, 배포본은 Cloud Run</td></tr>
+</tbody></table></div>
+
+<h3>역할</h3>
+<div class="tw"><table>
+<thead><tr><th>담당</th><th>몫</th></tr></thead>
+<tbody>
+<tr><td>담당1 · 윤수</td><td>데이터 정리, 골격 분할, 변형 생성, 허용성 판정, 계층적 분산 분해</td></tr>
+<tr><td>담당2 · 지예</td><td>예측 모델(지문·ChemBERTa), 컨포멀, 적용가능도메인</td></tr>
+<tr><td>담당3 · 영주</td><td>통계 절차 정합 &mdash; 골격 부트스트랩, BH 보정, MAD 민감도</td></tr>
+<tr><td>담당4 · 주형</td><td>통합·평가, 분할 규율 감사, 데모, 사전 등록 검증</td></tr>
+</tbody></table></div>
+</div></section>
+
+</main>
+
+<footer><div class="wrap">
+  <p>MIST · 입력 상태 민감성을 ADMET 예측의 신뢰성 신호로 쓸 수 있는가 · 상세판</p>
+  <p>모든 수치는 산출물과 기계 대조로 확인했다. 간결판 보고서와 같은 산출물에서 나온다.</p>
+</div></footer>
