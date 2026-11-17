@@ -1,0 +1,20 @@
+{
+  "check1_max_abs_diff": 9.71445146547012e-17,
+  "check1_pass": true,
+  "check2_fp_config_mean22": 0.07262177924913508,
+  "check2_pass": true,
+  "check3": {
+    "cyp1a2_veith": {
+      "effect": 0.05355793653822155,
+      "saved": 0.05355793653822155,
+      "diff": 0.0
+    },
+    "cyp2c19_veith": {
+      "effect": 0.08934221353226424,
+      "saved": 0.08934221353226424,
+      "diff": 0.0
+    }
+  },
+  "check3_pass": true,
+  "all_pass": true
+}
